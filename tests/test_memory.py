@@ -200,3 +200,76 @@ class TestCli:
             note(name="deploy-target", description="Deploys go to Fly.io", body="x\n\n**Why:** y\n"))
         assert memory.main(["--cwd", str(repo), "search", "fly.io", "deploys"]) == 0
         assert json.loads(capsys.readouterr().out)[0]["name"] == "deploy-target"
+
+
+class TestHubJson:
+    def write_memory(self, directory):
+        directory.mkdir(parents=True)
+        (directory / "MEMORY.md").write_text("- [Auth](auth-uses-session-cookies.md) — cookies\n")
+        (directory / "auth-uses-session-cookies.md").write_text(
+            note(body="Sessions live in Redis.\n\n**Why:** revocation.\nSee [[redis-layout]] and [[missing-note]].\n"))
+        # Linked by file stem, not by its frontmatter name.
+        (directory / "redis-layout.md").write_text(
+            note(name="redis-keys", description="Redis key naming", kind="reference", body="Prefix by service.\n"))
+        (directory / "briefs").mkdir()
+        (directory / "briefs" / "2026-10-23-login.md").write_text(
+            "# Brief: Session login cookies\n\nGoal: log in. [[auth-uses-session-cookies]]\n")
+        (directory / "briefs" / "2026-10-24-untitled.md").write_text("Goal: no title line.\n")
+
+    def test_dump_notes_links_and_backlinks(self, tmp_path):
+        self.write_memory(tmp_path / "m")
+        result = memory.dump(tmp_path / "m")
+        notes = {n["name"]: n for n in result["notes"]}
+        assert set(notes) == {"auth-uses-session-cookies", "redis-keys"}
+        auth = notes["auth-uses-session-cookies"]
+        assert auth["description"] == "Auth uses server-side session cookies, not JWTs"
+        assert auth["type"] == "project"
+        assert "Sessions live in Redis." in auth["body"] and "---" not in auth["body"]
+        assert auth["path"] == str(tmp_path / "m" / "auth-uses-session-cookies.md")
+        assert auth["links"] == [
+            {"target": "missing-note", "name": None},
+            {"target": "redis-layout", "name": "redis-keys"},
+        ]
+        assert notes["redis-keys"]["backlinks"] == ["auth-uses-session-cookies"]
+        assert auth["backlinks"] == []
+        assert result["index"].startswith("- [Auth]")
+        assert result["memory_dir"] == str(tmp_path / "m")
+
+    def test_dump_briefs_are_separate_with_titles(self, tmp_path):
+        self.write_memory(tmp_path / "m")
+        briefs = memory.dump(tmp_path / "m")["briefs"]
+        assert [b["file"] for b in briefs] == ["2026-10-24-untitled.md", "2026-10-23-login.md"]
+        assert briefs[1]["title"] == "Session login cookies"
+        assert briefs[1]["path"] == str(tmp_path / "m" / "briefs" / "2026-10-23-login.md")
+        assert "Goal: log in." in briefs[1]["body"]
+        assert briefs[1]["links"] == [{"target": "auth-uses-session-cookies", "name": "auth-uses-session-cookies"}]
+        assert briefs[0]["title"] == "2026-10-24-untitled"
+
+    def test_dump_of_missing_dir_is_empty(self, tmp_path):
+        assert memory.dump(tmp_path / "nope") == {
+            "memory_dir": str(tmp_path / "nope"), "index": "", "notes": [], "briefs": []}
+
+    def test_projects_lists_folders_with_source(self, repo, env):
+        memory.init(repo, in_repo=False, do_migrate=False)
+        self.write_memory(env["memory_root"] / "other")
+        (env["memory_root"] / "other" / ".source").write_text("/elsewhere/other\n")
+        (env["memory_root"] / "stray").mkdir()
+        assert memory.projects() == [
+            {"name": "other", "memory_dir": str(env["memory_root"] / "other"), "repo": "/elsewhere/other",
+             "note_count": 2, "brief_count": 2},
+            {"name": "shop", "memory_dir": str(env["memory_root"] / "shop"), "repo": str(repo),
+             "note_count": 0, "brief_count": 0},
+        ]
+
+    def test_projects_with_no_memory_root(self, env):
+        assert memory.projects() == []
+
+    def test_cli_dump_and_projects_print_json(self, repo, env, capsys):
+        memory.init(repo, in_repo=False, do_migrate=False)
+        assert memory.main(["projects"]) == 0
+        assert json.loads(capsys.readouterr().out)[0]["name"] == "shop"
+        assert memory.main(["--cwd", str(repo), "dump"]) == 0
+        assert json.loads(capsys.readouterr().out)["memory_dir"] == str(env["memory_root"] / "shop")
+        self.write_memory(env["tmp"] / "m2")
+        assert memory.main(["dump", "--dir", str(env["tmp"] / "m2")]) == 0
+        assert len(json.loads(capsys.readouterr().out)["briefs"]) == 2

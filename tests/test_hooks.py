@@ -1,7 +1,7 @@
 import json
 
 import memory
-from conftest import note, run_hook
+from conftest import ROOT, note, run_hook
 
 BAD = note(kind="project", body="A fact without a reason.\n")
 
@@ -83,6 +83,13 @@ class TestSessionStart:
         assert "Rule 1: talk, don't touch" in text
         assert "scripts/memory.py" in text
         assert "name: talk-first" not in text
+
+    def test_injects_hub_launcher(self, repo, env):
+        text = self.context(repo, env)
+        cli = ROOT / "hub" / "cli.ts"
+        hub_line = next(line for line in text.splitlines() if line.startswith("- Hub:"))
+        assert f'node "{cli}" open' in hub_line
+        assert "plan <path>" in hub_line and "worktree <path>" in hub_line
 
     def test_asks_for_setup_in_new_repo(self, repo, env):
         assert "NOT set up" in self.context(repo, env)

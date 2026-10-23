@@ -11,13 +11,14 @@ You don't run any commands or remember any steps. The main session follows the w
 1. **Talk-only main agent.** It reads, searches, explains and discusses, but doesn't edit project files unless you explicitly ask for a direct edit. This is a soft rule (instructions, not a hard block).
 2. **Per-project memory.** Claude Code's own memory system, redirected to `~/memory/<project>/` (or `<repo>/.memory/` for repos where you want notes committed). Notes keep the native format, with `**Why:**`, `**How to apply:**`, `**Where:**` pointers and `[[links]]`.
 3. **Memory write check.** A hook blocks malformed notes (bad frontmatter, missing `**Why:**`, overlong description). Before writing, a Haiku sub-agent compares the note with the most similar existing notes and rejects duplicates, contradictions and vague notes. If that sub-agent can't be reached, the note is written with the format check only.
-4. **Start gate.** When a conversation turns into a change, the agent restates the task, settles open questions in chat and shows the plan in plain English. Then it asks whether to start, with the option to save the plan to `<memory>/briefs/` first (recommended for medium and high complexity, skipped for small fixes). Nothing is built until you choose to start.
+4. **Start gate.** When a conversation turns into a change, the agent restates the task, settles open questions in chat and shows the plan in plain English. Then it asks whether to start, with the option to save the plan to `<memory>/briefs/` first (recommended for medium and high complexity, skipped for small fixes), or to open the plan in the hub. Nothing is built until you choose to start.
 5. **Browsing.** WebFetch and WebSearch for plain reading. A bundled Playwright MCP server starts its own headless Chromium when a page needs JavaScript, clicking, screenshots or checking your own app; it keeps its profile in memory and shuts down after 10 idle minutes. Claude in Chrome is used for sites where you are signed in or when you want to watch. It checks RAM and CPU first and closes what it opens.
-6. **Implementer and tiered review.** An Opus implementer works in its own git worktree. Brief conformance, security and lint reviews always run; architecture review runs for medium and high complexity; test review runs when core business logic changes. Blockers go back to the implementer for up to two fix rounds. Then you choose: merge locally, open a PR (offered when the repo has a remote and `gh` is signed in), keep the branch without merging, or discard (with an option to retry). It pushes only when you open a PR.
+6. **Implementer and tiered review.** An Opus implementer works in its own git worktree. Brief conformance, security and lint reviews always run; architecture review runs for medium and high complexity; test review runs when core business logic changes. Blockers go back to the implementer for up to two fix rounds. Then you choose: merge locally, open a PR (offered when the repo has a remote and `gh` is signed in), keep the branch without merging, discard (with an option to retry), or look at the diff in the hub first. It pushes only when you open a PR.
+7. **Hub.** A local web page for each project's saved plans, memory notes, markdown docs and worktree diffs. See [Hub](#hub).
 
 ## Install
 
-Requires Claude Code, Python 3 (standard library only) and Node.js with `npx` (for the bundled browser). Install the browser build once, about 400 MB:
+Requires Claude Code, Python 3 (standard library only) and Node.js with `npx` (for the bundled browser). The optional hub also needs Node.js 22.18+ and pnpm. Install the browser build once, about 400 MB:
 
 ```
 npx -y @playwright/mcp@0.0.83 install-browser chrome-for-testing
@@ -62,6 +63,34 @@ python3 scripts/memory.py search session cookies
 python3 scripts/memory.py check path/to/note.md
 ```
 
+## Hub
+
+The hub is a read-only web UI on your machine. It shows, per project:
+
+- **Plans**: the briefs saved in `<memory>/briefs/`.
+- **Memory**: every note and the `MEMORY.md` index. `[[links]]` are clickable and each note lists its backlinks.
+- **Docs**: the repo's tracked `*.md` files.
+- **Worktrees**: each linked worktree's changed files against its base (by default the merge-base with the main checkout's branch), in a side-by-side or inline diff.
+
+Every page has its own URL. The agent opens it for you at two moments: **Open the plan** at the start gate, and **Look first** after review. You can also open it yourself:
+
+```
+node hub/cli.ts open                         # the current repo's project page
+node hub/cli.ts open plan <path>             # also: note <path>, doc <repo> <path>, worktree <path> [--base <sha>], project <repo>
+node hub/cli.ts open --print-url ...         # print the URL instead of opening a browser
+node hub/cli.ts stop
+```
+
+It needs Node.js 22.18 or newer and pnpm. The first run (and the first run after the plugin updates) runs `pnpm install --frozen-lockfile` and builds the UI into `~/.cache/talk-first-workflow/hub/dist`, which takes a few seconds. The server starts in the background, is reused by later commands, and exits after 30 idle minutes.
+
+Security model:
+
+- It listens on 127.0.0.1 only, on a random free port.
+- The URL it opens carries a random token. The server swaps it for an HttpOnly, SameSite=Strict cookie, and every API call needs that cookie or the token.
+- Requests whose Host header isn't `127.0.0.1:<port>` or `localhost:<port>` are refused, which blocks DNS-rebinding attacks. It sends no CORS headers.
+- It only reads files inside the projects' repos and memory folders, using real paths so symlinks and `..` can't escape, and it never writes to them. Git and `memory.py` run with argument lists, never through a shell.
+- The token is kept in `~/.cache/talk-first-workflow/hub/state.json`, readable only by you.
+
 ## Team notes
 
 - Memory is per machine and per person unless a repo uses `.memory/` and commits it.
@@ -75,6 +104,9 @@ python3 scripts/memory.py check path/to/note.md
 python3 -m pytest -q                         # unit and hook tests
 claude plugin validate .                     # manifest check
 claude --plugin-dir .                        # try local changes without installing
+cd hub && pnpm install --frozen-lockfile     # hub dependencies
+pnpm typecheck && pnpm lint && pnpm test     # hub checks: tsc, Biome, vitest
+pnpm build                                   # hub UI build (the launcher does this itself)
 ```
 
-Layout: `.mcp.json` (bundled browser server), `hooks/` (session start, memory write check), `skills/` (workflow steps the agent loads itself), `agents/` (implementer and reviewers), `scripts/memory.py` (setup, check, similar, search), `tests/`.
+Layout: `.mcp.json` (bundled browser server), `hooks/` (session start, memory write check), `skills/` (workflow steps the agent loads itself), `agents/` (implementer and reviewers), `scripts/memory.py` (setup, check, similar, search, and JSON for the hub), `hub/` (the web hub: `cli.ts` launcher, `server/` Hono API, `web/` React UI), `tests/`.

@@ -1,2 +1,3 @@
 __pycache__/
 .pytest_cache/
+hub/node_modules/

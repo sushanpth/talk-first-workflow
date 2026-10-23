@@ -50,6 +50,9 @@ Give the user a short report: what was built, the Done-when check results, each 
 - **Open a PR**: remove the worktree, rename the branch to a short kebab-case name from the plan title (`git branch -m <branch> <name>`), `git push -u origin <name>`, then `gh pr create --base <base branch> --body-file <file>`. Write the title and body in plain English: the goal, what changed, the Done-when results and the reviewer verdicts. One paragraph per line, no hard wrapping. Leave local paths (home, /tmp, memory) and unfixed security findings out of the body. Give the user the PR link. Offer this option only when `git remote` lists a remote and `gh auth status` succeeds; otherwise leave it out.
 - **Keep the branch**: remove the worktree, rename the branch the same way, and tell the user the branch name.
 - **Discard**: remove the worktree and branch, then ask whether to retry. A retry means: talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
+- **Look first**: run the Hub command from the session context with `open worktree <worktree path> --base <base commit>` so the diff opens in the browser, and give the worktree path and branch (if the hub can't run, give its one-line error with the path and branch). Wait until the user says they are done looking, then ask this question again.
+
+AskUserQuestion shows at most four options. When Open a PR is offered, leave **Keep the branch** off the buttons; the user can still choose it in the free-text reply.
 
 These git commands are the user's explicit choice, so they are allowed despite talk mode. Push only when the user picks Open a PR.
 
