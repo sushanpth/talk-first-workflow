@@ -55,17 +55,10 @@ python3 scripts/memory.py search session cookies
 python3 scripts/memory.py check path/to/note.md
 ```
 
-## Using it with superpowers
-
-The workflow tells the main agent that it takes precedence over other plugins' "invoke a skill first" instructions. If superpowers still pulls the main session into its planning or brainstorming skills, add this line to your `~/.claude/CLAUDE.md`:
-
-```
-When the talk-first-workflow plugin is active, its workflow replaces superpowers' brainstorming, planning, worktree and implementation skills in the main session.
-```
-
 ## Team notes
 
 - Memory is per machine and per person unless a repo uses `.memory/` and commits it.
+- Plugins that inject "always invoke a skill first" rules at session start (such as superpowers) pull the main session out of talk mode. Disable them while using this plugin; the implementer already follows test-first and root-cause-first rules.
 - The plugin applies to every session once enabled. Teammates who want it for some repos only can disable it globally and enable it in those projects.
 - Agent models: implementer and security reviewer use Opus, conformance, architecture and test reviewers use Sonnet, lint reviewer and memory reviewer use Haiku. Edit the `model:` line in `agents/*.md` to change them.
 

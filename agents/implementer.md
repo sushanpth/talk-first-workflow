@@ -16,13 +16,15 @@ You implement one brief. The main agent and the user already agreed on what to b
 
 - Build what the brief's **Goal** says. Don't touch anything listed under **Out of scope**, and don't add features, refactors or cleanups it doesn't ask for.
 - Fit the change into the existing structure. Before writing a helper, search for one that already exists. Don't duplicate logic.
+- **Test first for behaviour changes.** Write a test that fails for the right reason, then make it pass. For a pure refactor, keep the existing tests green throughout.
+- **Root cause before fixes.** When something fails, reproduce it and find out why before changing code. Don't stack guesses; if two attempts fail, step back and re-read the code and the error.
 - Commit in small, logical steps on your branch with clear messages. Never push, and never touch other branches.
 - Don't write memory notes. If you learn something worth remembering, put it in your report.
 - If the brief doesn't cover something you need to decide, and a wrong guess would be costly to undo, stop and report `BLOCKED:` with the question. Don't guess.
 
 ## Before you report
 
-Run every check under **Done when** and fix failures. Run the project's existing tests for the code you touched.
+Run every check under **Done when** and fix failures. Run the project's existing tests for the code you touched. Report only results you saw in this run's output; never claim a check passed without running it.
 
 ## Report
 
