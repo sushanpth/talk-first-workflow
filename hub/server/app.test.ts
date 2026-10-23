@@ -39,6 +39,41 @@ describe('token, cookie and Host checks', () => {
     expect((await get('/api/projects', { cookie: 'tfw_hub=wrong' })).status).toBe(401);
   });
 
+  it('rejects percent-encoded API paths without the token', async () => {
+    for (const path of [
+      '/api',
+      '/%61pi',
+      '/%61pi/projects',
+      '/ap%69/health',
+      '/api/projects/sho%70/memory',
+      '/%61pi/projects/shop/plans',
+      `/%61pi/resolve?kind=project&repo=${encodeURIComponent(fx.repo)}`,
+    ]) {
+      const res = await get(path);
+      expect(res.status, path).toBe(401);
+    }
+    expect((await get(`/%61pi/health?token=${TOKEN}`)).status).toBe(200);
+  });
+
+  it('counts only authenticated API requests as activity', async () => {
+    let hits = 0;
+    const counted = createApp({
+      token: TOKEN,
+      port: () => PORT,
+      projects: new ProjectStore(hubPaths()),
+      dist: join(fx.tmp, 'dist'),
+      onActivity: () => {
+        hits += 1;
+      },
+    });
+    await counted.request('/api/health', { headers: { host: 'evil.example' } });
+    await counted.request('/api/health', { headers: { host: HOST } });
+    await counted.request('/%61pi/health', { headers: { host: HOST } });
+    expect(hits).toBe(0);
+    await counted.request(`/api/health?token=${TOKEN}`, { headers: { host: HOST } });
+    expect(hits).toBe(1);
+  });
+
   it('accepts the token in the query or the cookie', async () => {
     expect((await get(`/api/health?token=${TOKEN}`)).status).toBe(200);
     expect((await get('/api/health', { cookie: `tfw_hub=${TOKEN}` })).status).toBe(200);

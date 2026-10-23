@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, relative } from 'node:path';
-import { Hono } from 'hono';
+import { type ErrorHandler, Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import {
   changedFiles,
@@ -14,7 +14,7 @@ import {
 import { memoryDump, memoryStatus } from './memory.ts';
 import { realInside } from './paths.ts';
 import type { ProjectStore } from './projects.ts';
-import { guard } from './security.ts';
+import { guard, requireAuth } from './security.ts';
 import type { FileDiff, MemoryOverview, PlanSummary, Project, Worktree, WorktreeDiff } from './types.ts';
 
 export interface AppOptions {
@@ -51,17 +51,18 @@ const CSP =
 export function createApp(options: AppOptions): Hono {
   const { projects } = options;
   const app = new Hono();
+  // Every API route lives on this sub-app, behind its auth middleware: deny by default.
+  const api = new Hono();
 
-  app.use(async (_c, next) => {
-    options.onActivity?.();
-    await next();
-  });
   app.use(guard({ token: options.token, port: options.port }));
+  api.use(requireAuth(options.token, options.onActivity));
 
-  app.onError((err, c) => {
+  const onError: ErrorHandler = (err, c) => {
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
     return c.json({ error: err.message }, 500);
-  });
+  };
+  app.onError(onError);
+  api.onError(onError);
 
   const project = async (id: string): Promise<Project> =>
     (await projects.get(id)) ?? fail(404, 'no such project');
@@ -81,23 +82,23 @@ export function createApp(options: AppOptions): Hono {
     return (await resolveCommit(tree.path, ref)) ?? fail(400, 'unknown base commit');
   };
 
-  app.get('/api/health', (c) => c.json({ ok: true, pid: process.pid }));
+  api.get('/health', (c) => c.json({ ok: true, pid: process.pid }));
 
-  app.get('/api/projects', async (c) => c.json(await projects.list()));
+  api.get('/projects', async (c) => c.json(await projects.list()));
 
-  app.get('/api/projects/:id', async (c) => c.json(await project(c.req.param('id'))));
+  api.get('/projects/:id', async (c) => c.json(await project(c.req.param('id'))));
 
-  app.get('/api/projects/:id/plans', async (c) => {
+  api.get('/projects/:id/plans', async (c) => {
     const { briefs } = await dump(c.req.param('id'));
     return c.json(briefs.map(({ file, title, path }): PlanSummary => ({ file, title, path })));
   });
 
-  app.get('/api/projects/:id/plans/:file', async (c) => {
+  api.get('/projects/:id/plans/:file', async (c) => {
     const { briefs } = await dump(c.req.param('id'));
     return c.json(briefs.find((b) => b.file === c.req.param('file')) ?? fail(404, 'no such plan'));
   });
 
-  app.get('/api/projects/:id/memory', async (c) => {
+  api.get('/projects/:id/memory', async (c) => {
     const data = await dump(c.req.param('id'));
     const overview: MemoryOverview = {
       memoryDir: data.memory_dir,
@@ -107,16 +108,16 @@ export function createApp(options: AppOptions): Hono {
     return c.json(overview);
   });
 
-  app.get('/api/projects/:id/memory/:note', async (c) => {
+  api.get('/projects/:id/memory/:note', async (c) => {
     const { notes } = await dump(c.req.param('id'));
     return c.json(notes.find((n) => n.name === c.req.param('note')) ?? fail(404, 'no such note'));
   });
 
-  app.get('/api/projects/:id/docs', async (c) => {
+  api.get('/projects/:id/docs', async (c) => {
     return c.json(await trackedMarkdown(repoOf(await project(c.req.param('id')))));
   });
 
-  app.get('/api/projects/:id/doc', async (c) => {
+  api.get('/projects/:id/doc', async (c) => {
     const repo = repoOf(await project(c.req.param('id')));
     const path = c.req.query('path') ?? fail(400, 'path is required');
     if (!(await trackedMarkdown(repo)).includes(path)) fail(404, 'not a tracked markdown file');
@@ -124,18 +125,18 @@ export function createApp(options: AppOptions): Hono {
     return c.json({ path, text: file.text });
   });
 
-  app.get('/api/projects/:id/worktrees', async (c) => {
+  api.get('/projects/:id/worktrees', async (c) => {
     return c.json(await listWorktrees(repoOf(await project(c.req.param('id')))));
   });
 
-  app.get('/api/projects/:id/worktrees/:name', async (c) => {
+  api.get('/projects/:id/worktrees/:name', async (c) => {
     const { repo, tree } = await worktree(c.req.param('id'), c.req.param('name'));
     const base = await baseFor(repo, tree, c.req.query('base'));
     const result: WorktreeDiff = { ...tree, base, files: await changedFiles(tree.path, base) };
     return c.json(result);
   });
 
-  app.get('/api/projects/:id/worktrees/:name/file', async (c) => {
+  api.get('/projects/:id/worktrees/:name/file', async (c) => {
     const { repo, tree } = await worktree(c.req.param('id'), c.req.param('name'));
     const base = await baseFor(repo, tree, c.req.query('base'));
     const path = c.req.query('path') ?? fail(400, 'path is required');
@@ -159,7 +160,7 @@ export function createApp(options: AppOptions): Hono {
   });
 
   // Maps a file the launcher was asked to open to its page in the UI.
-  app.get('/api/resolve', async (c) => {
+  api.get('/resolve', async (c) => {
     const kind = c.req.query('kind');
     const target = c.req.query('path') ?? '';
     const list = await projects.list();
@@ -202,7 +203,8 @@ export function createApp(options: AppOptions): Hono {
     return fail(400, 'kind must be project, plan, note, doc or worktree');
   });
 
-  app.all('/api/*', (c) => c.json({ error: 'not found' }, 404));
+  api.all('*', (c) => c.json({ error: 'not found' }, 404));
+  app.route('/api', api);
 
   app.get('*', async (c) => {
     let path = '';
