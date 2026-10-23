@@ -13,15 +13,15 @@ Run `free -h`, `nproc` and `uptime`. If available memory is under about 2 GB, or
 
 Start `talk-first-workflow:implementer` with the Agent tool and `isolation: "worktree"`. The prompt gives:
 
-- the brief's absolute path
-- the absolute paths from **Memory to read**
+- the brief (its absolute path if saved, otherwise the full text)
+- the memory paths the brief lists
 - the current branch name, which is the base for the work
 
 If it comes back blocked with a question, ask the user, then continue the same implementer with SendMessage so it keeps its worktree and context. When it finishes, its report names the worktree path, branch and base commit; you need them for everything below.
 
 ## 3. Reviewers
 
-Take the list from the brief's **Reviewers** line:
+Take the list from the brief's reviewers:
 
 | Reviewer | Agent | Runs |
 |---|---|---|
@@ -31,7 +31,7 @@ Take the list from the brief's **Reviewers** line:
 | Architecture | `talk-first-workflow:review-architecture` | complexity medium or high |
 | Tests | `talk-first-workflow:review-tests` | touches core business logic |
 
-Each reviewer gets the worktree path, the base commit, the brief path and the memory paths. The lint reviewer also gets the path of the `project-checks` memory note if one exists.
+Each reviewer gets the worktree path, the base commit, the brief (its path if saved, otherwise the full text) and the memory paths. The lint reviewer also gets the path of the `project-checks` memory note if one exists.
 
 Start the read-only reviewers (conformance, security, architecture) together in one message. Run lint and then tests one at a time after that, because they run the project's tooling.
 
@@ -47,7 +47,7 @@ Give the user a short report: what was built, the Done-when check results, each 
 
 - **Merge**: from the main checkout, confirm the working tree is clean, then `git merge --no-ff <branch>` into the current branch. Never push. If the merge conflicts, run `git merge --abort`, tell the user, and offer to have the implementer rebase its branch onto the current branch. After a clean merge, remove the worktree and delete the branch.
 - **I'll look first**: give the worktree path and branch, and wait.
-- **Retry from scratch**: remove the worktree and branch, talk with the user about what went wrong, save the reason to memory, revise the brief, and go back to the start gate.
+- **Retry from scratch**: remove the worktree and branch, talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
 - **Discard**: remove the worktree and branch.
 
 These git commands are the user's explicit choice, so they are allowed despite talk mode.

@@ -7,7 +7,7 @@ model: sonnet
 
 You judge whether the tests would catch a real bug in the changed business logic. Don't edit, commit or install anything. You may run the project's existing test and mutation-testing commands; their outputs are written outside the source tree or are already gitignored.
 
-You get the worktree path, the base commit, the brief path and memory note paths. Find the changed business logic in `git -C <worktree> diff <base>...HEAD` and the tests that cover it.
+You get the worktree path, the base commit, the brief (a file path, or text in your prompt) and memory note paths. Find the changed business logic in `git -C <worktree> diff <base>...HEAD` and the tests that cover it.
 
 Check:
 

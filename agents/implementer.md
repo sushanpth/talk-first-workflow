@@ -8,7 +8,7 @@ You implement one brief. The main agent and the user already agreed on what to b
 
 ## Before you start
 
-1. Read the brief at the path you were given, then every memory note it lists. The notes record decisions and their reasons; follow them.
+1. Read the brief (a file path, or text in your prompt), then every memory note it lists. The notes record decisions and their reasons; follow them.
 2. Confirm you are in your own git worktree (`git rev-parse --show-toplevel`, `git branch --show-current`). Record the base commit with `git rev-parse HEAD`.
 3. Read the code you will change and match its conventions: naming, structure, error handling, comment density.
 

@@ -1,46 +1,50 @@
 ---
 name: brief
-description: Tell-back, written brief and start gate for the talk-first workflow - restate the task, write the brief to the project's memory briefs folder, resolve open questions, then ask the user whether to start. Use when a conversation has turned into a change to build.
+description: Tell-back, plan and start gate for the talk-first workflow - restate the task, settle open questions in chat, show the plan in chat, then ask whether to start and whether to save the plan to a file first. Use when a conversation has turned into a change to build.
 ---
 
-# Tell back, brief, start gate
+# Tell back, plan, start gate
 
 ## 1. Tell back
 
 Without being asked, restate in a few lines: the goal, what is out of scope, and the key decisions so far. Ask the user to correct anything wrong. Don't move on until they confirm or correct.
 
-## 2. Write the brief
+## 2. Settle open questions
 
-Write it to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` (the memory folder is in the session context; create `briefs/` if needed). Briefs are skipped by the memory check and are not added to `MEMORY.md`.
+Ask about anything still open with AskUserQuestion, before you show or write a plan. Never show the plan while a major question remains.
+
+## 3. Show the plan
+
+Post the brief in chat, whole. It is the plan the user agrees to, and the text the implementer and reviewers get.
 
 ```markdown
 # Brief: <title>
 Goal:
+Plan: (one concrete action per bullet, naming the files)
 Out of scope:
-Plan: (3–7 bullets: the main steps the implementer will take and the files or areas each touches)
 Decisions: (each linked to memory where one exists, e.g. [[auth-uses-session-cookies]])
 Done when: (concrete checks: commands, tests, observable behaviour)
-Complexity: low | medium | high
-Touches core business logic: yes | no
-Reviewers: brief-conformance, security, lint   (+ architecture if complexity is medium/high, + tests if core logic)
-Memory to read: (absolute paths of the notes the implementer needs)
-Open questions:
+
+Complexity: low | medium | high · core logic: yes | no · reviewers: conformance, security, lint (+ architecture if complexity is medium/high, + tests if core logic) · memory to read: (absolute paths of the notes the implementer needs, or "none")
 ```
 
 Complexity: **low** is a small change within one module; **medium** spans modules or adds a new component; **high** changes structure, data models or interfaces others depend on. Core business logic is the code that encodes the product's rules (pricing, permissions, calculations, state transitions), as opposed to UI, plumbing or config.
 
-## 3. Resolve open questions
+### How to write the plan
 
-If **Open questions** has anything in it, ask those questions now (AskUserQuestion), update the brief and clear the list. Never ask to start while questions remain.
+- Write for a person, not a model. Short sentences, everyday words.
+- Name the real files and the behaviour the user will see.
+- One concrete action per bullet. Say each thing once; don't restate the goal in every section.
+- No filler, hype or hedging. Avoid words like "robust", "seamless", "comprehensive", "leverage", "ensure", "streamline", "enhance" and "it's worth noting".
+- If a section has nothing in it, write "none".
 
 ## 4. Start gate
 
-First print the brief in chat, with its path. If the brief is about 40 lines or less, print it whole. Otherwise print a summary: Goal, Plan, Out of scope, key Decisions, Done when, complexity and reviewers.
+Ask one question with AskUserQuestion: "Start implementation?" Put "(Recommended)" on **Save and start** when complexity is medium or high, and on **Start** when it is low. Options:
 
-Then ask with AskUserQuestion, showing the brief path, complexity and reviewers in the question, for example: "Start implementation? Brief: briefs/2026-10-23-login-2fa.md · complexity medium · reviewers: conformance, security, lint, architecture". Options:
-
-- **Start**: load `talk-first-workflow:review-and-merge` and follow it.
-- **Change something**: ask what, update the brief, show it again (whole or summary), ask again.
+- **Start**: load `talk-first-workflow:review-and-merge` and follow it. No file is written; the implementer and reviewers get the plan text in their prompts.
+- **Save and start**: write the plan to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` (the memory folder is in the session context; create `briefs/` if needed), then load `talk-first-workflow:review-and-merge` and pass that path. Briefs are skipped by the memory check and are not added to `MEMORY.md`.
+- **Change something**: ask what, update the plan, show it again, ask again.
 - **Not yet**: keep talking.
 
-Choosing Start is the only thing that starts implementation.
+Choosing Start (or Save and start) is the only thing that starts implementation.
