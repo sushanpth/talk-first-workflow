@@ -3,7 +3,7 @@
   "description": "Talk-first AI development: a talk-only main agent, per-project memory with a write gate, a start gate on a written brief, and tiered expert review of sub-agent work.",
   "version": "0.1.0",
   "author": {
-    "name": "Sushan"
+    "name": "Sudarshan Pathak"
   },
   "license": "MIT",
   "keywords": ["workflow", "memory", "sub-agents", "code-review"]

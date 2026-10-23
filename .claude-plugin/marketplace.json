@@ -2,7 +2,7 @@
   "name": "talk-first-workflow",
   "description": "Marketplace for the talk-first-workflow plugin",
   "owner": {
-    "name": "Sushan"
+    "name": "Sudarshan Pathak"
   },
   "plugins": [
     {
