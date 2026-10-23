@@ -179,6 +179,8 @@ def init(cwd: Path, in_repo: bool, do_migrate: bool) -> dict:
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2) + "\n")
     ensure_ignored(root, ".claude/settings.local.json")
+    # Claude Code creates the implementer's worktrees here.
+    ensure_ignored(root, ".claude/worktrees/")
 
     copied = migrate(legacy_dir(root), dest) if do_migrate and legacy_dir(root).is_dir() else 0
     unskip(root)

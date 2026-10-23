@@ -122,8 +122,13 @@ class TestSetup:
         memory.init(repo, in_repo=False, do_migrate=False)
         ignored = subprocess.run(["git", "check-ignore", "-q", ".claude/settings.local.json"], cwd=repo)
         assert ignored.returncode == 0
-        assert "settings.local.json" not in subprocess.run(
-            ["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout
+        (repo / ".claude" / "worktrees" / "agent-1").mkdir(parents=True)
+        (repo / ".claude" / "worktrees" / "agent-1" / "file.py").write_text("x = 1\n")
+        assert subprocess.run(
+            ["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout == ""
+        memory.init(repo, in_repo=False, do_migrate=False)
+        exclude = (repo / ".git" / "info" / "exclude").read_text().splitlines()
+        assert exclude.count(".claude/worktrees/") == 1
 
     def test_init_in_repo(self, repo):
         memory.init(repo, in_repo=True, do_migrate=False)
