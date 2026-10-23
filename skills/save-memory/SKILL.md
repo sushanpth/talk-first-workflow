@@ -31,17 +31,17 @@ Decisions about the project are `project`; the user's preferences are `user` or 
 
 ## 2. Check
 
-Pipe the draft to the memory tool's `check -` and fix anything it reports. The same check runs as a hook on every write to the memory folder, so a failing note will be blocked anyway.
+Pipe the draft to the memory tool's `check -` with a heredoc and fix anything it reports. Don't write draft files anywhere. The same check runs as a hook on Write and Edit in the memory folder.
 
 ## 3. Review
 
-Run the memory tool's `similar -` on the draft to get the closest existing notes. Then start the `talk-first-workflow:memory-reviewer` sub-agent with the draft and those notes' paths. It answers PASS or FAIL with a reason.
+Pipe the draft to the memory tool's `similar -` to get the closest existing notes. Then start the `talk-first-workflow:memory-reviewer` sub-agent with the full draft text in its prompt and those notes' paths. It answers PASS or FAIL with a reason.
 
 - **FAIL**: revise the draft (merge into the duplicate, resolve the contradiction, make it specific) or drop it if it isn't worth keeping.
 - **The reviewer call errors** (network error, usage limit): skip the review, write the note with the format check only, and say so in your one-line report.
 
 ## 4. Write and report
 
-Write the note file and add or update its one-line pointer in the folder's `MEMORY.md`: `- [Title](file.md) — short hook`. Keep index lines short; the whole index loads into every session.
+Write the note with the Write tool, or change an existing one with Edit, never with a shell command, so the format-check hook runs. Then add or update its one-line pointer in the folder's `MEMORY.md`: `- [Title](file.md) — short hook`. Keep index lines short; the whole index loads into every session.
 
 Tell the user in one line, for example: `Saved memory: auth-uses-session-cookies`. Don't ask before saving; if the user says undo, delete the note and its index line.
