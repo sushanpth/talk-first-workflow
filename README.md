@@ -26,11 +26,11 @@ npx -y @playwright/mcp@0.0.83 install-browser chrome-for-testing
 If you skip this, the agent asks before downloading it the first time it needs the browser.
 
 ```
-/plugin marketplace add <git url of this repo>
+/plugin marketplace add sushanpth/talk-first-workflow
 /plugin install talk-first-workflow@talk-first-workflow
 ```
 
-A local clone works too: `/plugin marketplace add ~/projects/personal/talk-first-workflow`.
+The full URL (`https://github.com/sushanpth/talk-first-workflow.git`) or a path to a local clone works too.
 
 Restart Claude Code after installing. The first session in each repo asks where to keep that project's memory.
 
@@ -74,7 +74,7 @@ python3 scripts/memory.py check path/to/note.md
 ```
 python3 -m pytest -q                         # unit and hook tests
 claude plugin validate .                     # manifest check
-claude --plugin-dir ~/projects/personal/talk-first-workflow   # try local changes without installing
+claude --plugin-dir .                        # try local changes without installing
 ```
 
 Layout: `.mcp.json` (bundled browser server), `hooks/` (session start, memory write check), `skills/` (workflow steps the agent loads itself), `agents/` (implementer and reviewers), `scripts/memory.py` (setup, check, similar, search), `tests/`.
