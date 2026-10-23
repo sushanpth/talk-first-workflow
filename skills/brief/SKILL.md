@@ -17,6 +17,7 @@ Write it to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` (the memory folder is 
 # Brief: <title>
 Goal:
 Out of scope:
+Plan: (3–7 bullets: the main steps the implementer will take and the files or areas each touches)
 Decisions: (each linked to memory where one exists, e.g. [[auth-uses-session-cookies]])
 Done when: (concrete checks: commands, tests, observable behaviour)
 Complexity: low | medium | high
@@ -34,10 +35,12 @@ If **Open questions** has anything in it, ask those questions now (AskUserQuesti
 
 ## 4. Start gate
 
-Ask with AskUserQuestion, showing the brief path, complexity and reviewers in the question, for example: "Start implementation? Brief: briefs/2026-10-23-login-2fa.md · complexity medium · reviewers: conformance, security, lint, architecture". Options:
+First print the brief in chat, with its path. If the brief is about 40 lines or less, print it whole. Otherwise print a summary: Goal, Plan, Out of scope, key Decisions, Done when, complexity and reviewers.
+
+Then ask with AskUserQuestion, showing the brief path, complexity and reviewers in the question, for example: "Start implementation? Brief: briefs/2026-10-23-login-2fa.md · complexity medium · reviewers: conformance, security, lint, architecture". Options:
 
 - **Start**: load `talk-first-workflow:review-and-merge` and follow it.
-- **Change something**: ask what, update the brief, ask again.
+- **Change something**: ask what, update the brief, show it again (whole or summary), ask again.
 - **Not yet**: keep talking.
 
 Choosing Start is the only thing that starts implementation.
