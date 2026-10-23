@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "browser": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.83",
+        "--browser", "chromium",
+        "--headless",
+        "--isolated",
+        "--idle-timeout", "600000",
+        "--output-dir", "${HOME}/.cache/talk-first-workflow/browser"
+      ]
+    }
+  }
+}

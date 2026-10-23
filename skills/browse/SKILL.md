@@ -1,6 +1,6 @@
 ---
 name: browse
-description: How to read and drive web pages - WebFetch/WebSearch for plain reading, Claude in Chrome for JavaScript-heavy pages, signed-in sites, click-through flows, screenshots, console errors and checking a local dev server. Covers resource checks, tab hygiene, extracting long page text, and when to stop. Use whenever a task needs a web page.
+description: How to read and drive web pages - WebFetch/WebSearch for plain reading, the plugin's own headless Chromium for JavaScript pages, click-through flows, screenshots, console errors and checking a local dev server, and Claude in Chrome for signed-in sites. Covers resource checks, tab hygiene, extracting long page text, and when to stop. Use whenever a task needs a web page.
 ---
 
 # Browse
@@ -11,10 +11,23 @@ description: How to read and drive web pages - WebFetch/WebSearch for plain read
 |---|---|
 | Search the web | WebSearch |
 | Read a public, mostly static page | WebFetch |
-| A page that needs JavaScript, a sign-in, clicking, scrolling or a screenshot | Claude in Chrome |
-| Check your own app (local dev server or a staging URL the user named) | Claude in Chrome |
+| A public page that needs JavaScript, clicking, scrolling or a screenshot | Own browser |
+| Check your own app (local dev server or a staging URL the user named) | Own browser |
+| A site where the user is signed in, or the user wants to watch | Claude in Chrome |
+| Claude in Chrome is not connected | Own browser |
 
-Fall back to Chrome when WebFetch is blocked, returns an empty or login page, or misses content that loads after the page does.
+Move up from WebFetch when it is blocked, returns an empty or login page, or misses content that loads after the page does.
+
+## Own browser (bundled Playwright Chromium)
+
+The plugin's `browser` MCP server starts its own headless Chromium on the first call. Its profile lives in memory, so every session starts signed out and parallel sessions don't collide, and it shuts down after 10 idle minutes. It never touches the user's Chrome.
+
+1. Check resources as in the next section (step 1).
+2. Load the tools you need in one ToolSearch call. They are named `mcp__plugin_talk-first-workflow_browser__browser_*`: `navigate`, `snapshot` (accessibility tree with element refs), `click`, `type`, `fill_form`, `press_key`, `select_option`, `wait_for`, `evaluate`, `take_screenshot`, `console_messages`, `network_requests`, `tabs`, `close`.
+3. `browser_snapshot` is the main way to read a page and get element refs for clicks; `browser_evaluate` returns compact values from the DOM. Screenshots and snapshots are saved under `~/.cache/talk-first-workflow/browser/`.
+4. Call `browser_close` when done.
+
+If a call fails with `Browser ... is not installed`, ask the user before downloading it (about 400 MB), then run `npx -y @playwright/mcp@0.0.83 install-browser chrome-for-testing`. If `npx` itself is missing, Node.js isn't installed; use Claude in Chrome instead and tell the user.
 
 ## Before opening Chrome
 
