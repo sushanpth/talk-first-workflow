@@ -242,6 +242,7 @@ class TestHubJson:
         assert briefs[1]["title"] == "Session login cookies"
         assert briefs[1]["path"] == str(tmp_path / "m" / "briefs" / "2026-10-23-login.md")
         assert "Goal: log in." in briefs[1]["body"]
+        assert briefs[1]["links"] == [{"target": "auth-uses-session-cookies", "name": "auth-uses-session-cookies"}]
         assert briefs[0]["title"] == "2026-10-24-untitled"
 
     def test_dump_of_missing_dir_is_empty(self, tmp_path):

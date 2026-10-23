@@ -368,14 +368,17 @@ def dump(directory: Path) -> dict:
             "description": meta.get("description", ""),
             "type": note_type(meta),
             "body": body.strip("\n"),
-            "links": sorted(set(LINK_RE.findall(body))),
         })
     name_of = {note["path"]: note["name"] for note in notes}
-    for item in notes:
-        item["links"] = [
-            {"target": target, "name": name_of.get(str(by_name[target])) if target in by_name else None}
-            for target in item["links"]
+
+    def links(text: str) -> list[dict]:
+        return [
+            {"target": target, "name": name_of[str(by_name[target])] if target in by_name else None}
+            for target in sorted(set(LINK_RE.findall(text)))
         ]
+
+    for item in notes:
+        item["links"] = links(item["body"])
     for item in notes:
         item["backlinks"] = sorted(
             other["name"] for other in notes
@@ -385,7 +388,10 @@ def dump(directory: Path) -> dict:
     briefs = []
     for path in brief_files(directory):
         text = path.read_text(errors="replace")
-        briefs.append({"path": str(path), "file": path.name, "title": brief_title(text, path.stem), "body": text})
+        briefs.append({
+            "path": str(path), "file": path.name, "title": brief_title(text, path.stem), "body": text,
+            "links": links(text),
+        })
     return {
         "memory_dir": str(directory),
         "index": index.read_text(errors="replace") if index.is_file() else "",
