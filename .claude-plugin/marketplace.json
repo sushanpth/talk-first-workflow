@@ -1,0 +1,15 @@
+{
+  "name": "talk-first-workflow",
+  "description": "Marketplace for the talk-first-workflow plugin",
+  "owner": {
+    "name": "Sushan"
+  },
+  "plugins": [
+    {
+      "name": "talk-first-workflow",
+      "description": "Talk-first AI development: talk-only main agent, per-project memory, brief + start gate, tiered review.",
+      "version": "0.1.0",
+      "source": "./"
+    }
+  ]
+}
