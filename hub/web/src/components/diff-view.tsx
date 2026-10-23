@@ -1,9 +1,12 @@
 import { DiffEditor, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
+import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { useSyncExternalStore } from 'react';
 
 // Use the bundled Monaco instead of the loader's default CDN.
 loader.config({ monaco });
+// Vite inlines Monaco's own editor-worker URL as a data: URL that can't load its imports.
+window.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
 const media = window.matchMedia('(prefers-color-scheme: dark)');
 const subscribe = (notify: () => void) => {

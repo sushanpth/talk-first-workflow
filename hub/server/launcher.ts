@@ -72,7 +72,18 @@ async function ensureBuilt(paths: HubPaths, hash: string): Promise<void> {
   await pnpm(['install', '--frozen-lockfile', '--config.confirmModulesPurge=false']);
   const tmp = `${paths.dist}.tmp`;
   rmSync(tmp, { recursive: true, force: true });
-  await pnpm(['exec', 'vite', 'build', '--config', 'web/vite.config.ts', '--outDir', tmp, '--emptyOutDir']);
+  await pnpm([
+    'exec',
+    'vite',
+    'build',
+    '--config',
+    'web/vite.config.ts',
+    '--outDir',
+    tmp,
+    '--emptyOutDir',
+    '--logLevel',
+    'warn',
+  ]);
   writeFileSync(join(tmp, '.build-hash'), `${hash}\n`);
   rmSync(paths.dist, { recursive: true, force: true });
   renameSync(tmp, paths.dist);
