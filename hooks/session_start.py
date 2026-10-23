@@ -43,6 +43,7 @@ def main() -> int:
         payload = {}
     cwd = Path(payload.get("cwd") or ".")
     tool = f'python3 "{PLUGIN_ROOT / "scripts" / "memory.py"}"'
+    hub = f'node "{PLUGIN_ROOT / "hub" / "cli.ts"}"'
     try:
         status_line = memory_line(memory.status(cwd))
     except Exception as exc:
@@ -51,8 +52,11 @@ def main() -> int:
     context = (
         "<talk-first-workflow>\n"
         + skill_body("talk-first")
-        + f"\n\n## This session\n\n- Memory tool: `{tool}` (subcommands: status, init, skip, check, similar, search).\n"
+        + f"\n\n## This session\n\n- Memory tool: `{tool}` (subcommands: status, init, skip, check, similar, search, projects, dump).\n"
         + f"- {status_line}\n"
+        + f"- Hub: `{hub} open [plan <path> | note <path> | doc <repo> <path> | worktree <path> --base <sha> | project <repo>]`"
+        " opens plans, memory, docs and worktree diffs in the user's browser (`stop` stops it). Needs Node 22.18+"
+        " and pnpm; the first run installs and builds it.\n"
         + "</talk-first-workflow>"
     )
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context}}))
