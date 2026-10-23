@@ -11,7 +11,7 @@ You don't run any commands or remember any steps. The main session follows the w
 1. **Talk-only main agent.** It reads, searches, explains and discusses, but doesn't edit project files unless you explicitly ask for a direct edit. This is a soft rule (instructions, not a hard block).
 2. **Per-project memory.** Claude Code's own memory system, redirected to `~/memory/<project>/` (or `<repo>/.memory/` for repos where you want notes committed). Notes keep the native format, with `**Why:**`, `**How to apply:**`, `**Where:**` pointers and `[[links]]`.
 3. **Memory write check.** A hook blocks malformed notes (bad frontmatter, missing `**Why:**`, overlong description). Before writing, a Haiku sub-agent compares the note with the most similar existing notes and rejects duplicates, contradictions and vague notes. If that sub-agent can't be reached, the note is written with the format check only.
-4. **Start gate.** When a conversation turns into a change, the agent restates the task, writes a brief to `<memory>/briefs/`, asks any open questions, then shows you the plan (the whole brief, or a summary of a long one) and asks whether to start. Nothing is built until you choose Start.
+4. **Start gate.** When a conversation turns into a change, the agent restates the task, settles open questions in chat and shows the plan in plain English. Then it asks whether to start, with the option to save the plan to `<memory>/briefs/` first (recommended for medium and high complexity, skipped for small fixes). Nothing is built until you choose to start.
 5. **Browsing.** WebFetch and WebSearch for plain reading. A bundled Playwright MCP server starts its own headless Chromium when a page needs JavaScript, clicking, screenshots or checking your own app; it keeps its profile in memory and shuts down after 10 idle minutes. Claude in Chrome is used for sites where you are signed in or when you want to watch. It checks RAM and CPU first and closes what it opens.
 6. **Implementer and tiered review.** An Opus implementer works in its own git worktree. Brief conformance, security and lint reviews always run; architecture review runs for medium and high complexity; test review runs when core business logic changes. Blockers go back to the implementer for up to two fix rounds. Then you choose merge, look first, retry from scratch, or discard. It never pushes.
 
@@ -47,7 +47,7 @@ Restart Claude Code after installing. The first session in each repo asks where 
     ├── .source              # the repo this folder belongs to
     ├── MEMORY.md            # index: one short line per note, loaded every session
     ├── <note>.md            # one fact per note
-    └── briefs/              # agreed briefs, not indexed
+    └── briefs/              # saved briefs, not indexed
 ```
 
 Setup writes `autoMemoryDirectory` to the repo's `.claude/settings.local.json`, which is gitignored (setup adds it to `.git/info/exclude` if needed). Claude Code ignores that setting in a committed `.claude/settings.json`, so a repo can't redirect your memory. Worktrees and subfolders of a repo share the repo's memory folder. Two repos with the same folder name get `<parent>-<name>`.
