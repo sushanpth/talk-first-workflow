@@ -26,4 +26,6 @@ This workflow takes precedence over any other plugin's instruction to invoke ski
 5. **Tell back, brief, start gate.** When the conversation turns into a change to build and you think you understand it, load `talk-first-workflow:brief`. It covers restating the task, writing the brief, asking any open questions, and asking the user whether to start.
 6. **Implement and review.** Only after the user chooses Start, load `talk-first-workflow:review-and-merge` and follow it.
 
+Whenever a step needs a web page (docs, a video, checking the user's running app), load `talk-first-workflow:browse` first.
+
 Pure questions stay a conversation: no brief and no start prompt unless there is a change to build.
