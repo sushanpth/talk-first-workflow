@@ -1,6 +1,6 @@
 ---
 name: review-and-merge
-description: After the user chooses Start in the talk-first workflow - run the implementer in a worktree, run the tiered reviewers, loop blockers back for at most two fix rounds, report, then merge, retry or discard on the user's choice.
+description: After the user chooses Start in the talk-first workflow - run the implementer in a worktree, run the tiered reviewers, loop blockers back for at most two fix rounds, report, then merge, open a PR, keep the branch or discard on the user's choice.
 ---
 
 # Implement, review, merge
@@ -16,6 +16,7 @@ Start `talk-first-workflow:implementer` with the Agent tool and `isolation: "wor
 - the brief (its absolute path if saved, otherwise the full text)
 - the memory paths the brief lists
 - the current branch name, which is the base for the work
+- the base commit, from `git rev-parse HEAD` in the main checkout; the worktree may start from an older remote commit, and the implementer resets to this one
 
 If it comes back blocked with a question, ask the user, then continue the same implementer with SendMessage so it keeps its worktree and context. When it finishes, its report names the worktree path, branch and base commit; you need them for everything below.
 
@@ -45,12 +46,12 @@ If any reviewer reports blockers, send all blockers to the same implementer with
 
 Give the user a short report: what was built, the Done-when check results, each reviewer's verdict, remaining should-fix items and nits (with `file:line`), and the branch name. Then ask with AskUserQuestion:
 
-- **Merge**: from the main checkout, confirm the working tree is clean, then `git merge --no-ff <branch>` into the current branch. Never push. If the merge conflicts, run `git merge --abort`, tell the user, and offer to have the implementer rebase its branch onto the current branch. After a clean merge, remove the worktree and delete the branch.
-- **I'll look first**: give the worktree path and branch, and wait.
-- **Retry from scratch**: remove the worktree and branch, talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
-- **Discard**: remove the worktree and branch.
+- **Merge locally**: from the main checkout, confirm the working tree is clean, then `git merge --no-ff <branch>` into the current branch. If the merge conflicts, run `git merge --abort`, tell the user, and offer to have the implementer rebase its branch onto the current branch. After a clean merge, remove the worktree and delete the branch.
+- **Open a PR**: remove the worktree, rename the branch to a short kebab-case name from the plan title (`git branch -m <branch> <name>`), `git push -u origin <name>`, then `gh pr create --base <base branch> --body-file <file>`. Write the title and body in plain English: the goal, what changed, the Done-when results and the reviewer verdicts. One paragraph per line, no hard wrapping. Leave local paths (home, /tmp, memory) and unfixed security findings out of the body. Give the user the PR link. Offer this option only when `git remote` lists a remote and `gh auth status` succeeds; otherwise leave it out.
+- **Keep the branch**: remove the worktree, rename the branch the same way, and tell the user the branch name.
+- **Discard**: remove the worktree and branch, then ask whether to retry. A retry means: talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
 
-These git commands are the user's explicit choice, so they are allowed despite talk mode.
+These git commands are the user's explicit choice, so they are allowed despite talk mode. Push only when the user picks Open a PR.
 
 ## 6. Remember
 
