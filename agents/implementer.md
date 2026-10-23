@@ -14,7 +14,7 @@ You implement one brief. The main agent and the user already agreed on what to b
 
 ## While you work
 
-- Build what the brief's **Goal** says. Don't touch anything listed under **Out of scope**, and don't add features, refactors or cleanups it doesn't ask for.
+- Build what the brief's **Goal** says, following its **Plan**: that is the agreed approach, and any departure goes under `Deviations:` in your report. Don't touch anything listed under **Out of scope**, and don't add features, refactors or cleanups it doesn't ask for.
 - Fit the change into the existing structure. Before writing a helper, search for one that already exists. Don't duplicate logic.
 - **Test first for behaviour changes.** Write a test that fails for the right reason, then make it pass. For a pure refactor, keep the existing tests green throughout.
 - **Root cause before fixes.** When something fails, reproduce it and find out why before changing code. Don't stack guesses; if two attempts fail, step back and re-read the code and the error.
