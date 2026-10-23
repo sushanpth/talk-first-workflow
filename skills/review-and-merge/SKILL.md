@@ -16,6 +16,7 @@ Start `talk-first-workflow:implementer` with the Agent tool and `isolation: "wor
 - the brief (its absolute path if saved, otherwise the full text)
 - the memory paths the brief lists
 - the current branch name, which is the base for the work
+- the base commit, from `git rev-parse HEAD` in the main checkout; the worktree may start from an older remote commit, and the implementer resets to this one
 
 If it comes back blocked with a question, ask the user, then continue the same implementer with SendMessage so it keeps its worktree and context. When it finishes, its report names the worktree path, branch and base commit; you need them for everything below.
 
