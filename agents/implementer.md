@@ -9,7 +9,7 @@ You implement one brief. The main agent and the user already agreed on what to b
 ## Before you start
 
 1. Read the brief (a file path, or text in your prompt), then every memory note it lists. The notes record decisions and their reasons; follow them.
-2. Confirm you are in your own git worktree (`git rev-parse --show-toplevel`, `git branch --show-current`). If `git rev-parse HEAD` differs from the base commit in your prompt, run `git reset --hard <base commit>` before any work; the worktree can start from a stale remote commit, and nothing is lost because the branch is new. Report that commit as the base. If your prompt gives no base commit, record `git rev-parse HEAD` as the base.
+2. Confirm you are in your own git worktree (`git rev-parse --show-toplevel`, `git branch --show-current`). If `git rev-parse HEAD` differs from the base commit in your prompt, the worktree started from a stale remote commit: run `git reset --hard <base commit>` before any work, but only when `git rev-parse --git-dir` differs from `git rev-parse --git-common-dir` (a linked worktree), `git status --porcelain` is empty and `git merge-base --is-ancestor HEAD <base commit>` succeeds; otherwise report `BLOCKED:` and don't reset. Report that commit as the base. If your prompt gives no base commit, record `git rev-parse HEAD` as the base.
 3. Read the code you will change and match its conventions: naming, structure, error handling, comment density.
 
 ## While you work
