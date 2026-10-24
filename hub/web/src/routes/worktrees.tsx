@@ -1,15 +1,13 @@
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { lazy, type ReactNode, Suspense, useState } from 'react';
-import { FileList } from '@/components/changed-files';
+import { type ReactNode, useState } from 'react';
+import { FileDiffPane, FileList } from '@/components/changed-files';
 import { ListView } from '@/components/list-view';
-import { Empty, ErrorBox, QueryState } from '@/components/query-state';
+import { Empty, QueryState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type AgentWorktree, useFileDiff, useWorktreeDiff, useWorktrees } from '@/lib/api';
 import { useListSearch } from '@/lib/list-search';
 import { SORT_KEYS } from '../../../server/types.ts';
-
-const DiffView = lazy(() => import('@/components/diff-view'));
 
 /** Title (the agent's task, else the folder name), branch and agent badges, plan link and path. */
 function WorktreeHeading({
@@ -127,22 +125,7 @@ export function WorktreePage() {
                 />
               </aside>
               <section className="min-w-0 overflow-hidden rounded-md border" data-section="diff">
-                {fileDiff.isError ? (
-                  <ErrorBox error={fileDiff.error} />
-                ) : !fileDiff.data ? (
-                  <p className="p-4 text-sm text-muted-foreground">Loading...</p>
-                ) : fileDiff.data.binary ? (
-                  <Empty>Binary or very large file; no text diff.</Empty>
-                ) : (
-                  <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading editor...</p>}>
-                    <DiffView
-                      path={fileDiff.data.path}
-                      original={fileDiff.data.original}
-                      modified={fileDiff.data.modified}
-                      sideBySide={sideBySide}
-                    />
-                  </Suspense>
-                )}
+                <FileDiffPane query={fileDiff} sideBySide={sideBySide} />
               </section>
             </div>
           )}

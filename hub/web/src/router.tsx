@@ -16,8 +16,10 @@ import {
   CodeIndexPage,
   CodeLayout,
   CodeSearchPage,
+  ComparePage,
   parseCodeFileSearch,
   parseCodeSearch,
+  parseCompareSearch,
 } from '@/routes/code';
 import { DocPage, DocsPage } from '@/routes/docs';
 import { MemoryPage, NotePage } from '@/routes/memory';
@@ -119,7 +121,7 @@ const docsIndexRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => parseListSearch('docs', search),
 });
 const docRoute = createRoute({ getParentRoute: () => docsRoute, path: '$', component: DocPage });
-// Nested like docs; the static `/search` outranks the `$` file splat.
+// Nested like docs; the static `/search` and `/compare` outrank the `$` file splat.
 const codeRoute = createRoute({ getParentRoute: () => projectRoute, path: '/code', component: CodeLayout });
 const codeIndexRoute = createRoute({ getParentRoute: () => codeRoute, path: '/', component: CodeIndexPage });
 const codeSearchRoute = createRoute({
@@ -127,6 +129,12 @@ const codeSearchRoute = createRoute({
   path: '/search',
   component: CodeSearchPage,
   validateSearch: parseCodeSearch,
+});
+const codeCompareRoute = createRoute({
+  getParentRoute: () => codeRoute,
+  path: '/compare',
+  component: ComparePage,
+  validateSearch: parseCompareSearch,
 });
 const codeFileRoute = createRoute({
   getParentRoute: () => codeRoute,
@@ -159,7 +167,7 @@ const routeTree = rootRoute.addChildren([
     memoryRoute,
     noteRoute,
     docsRoute.addChildren([docsIndexRoute, docRoute]),
-    codeRoute.addChildren([codeIndexRoute, codeSearchRoute, codeFileRoute]),
+    codeRoute.addChildren([codeIndexRoute, codeSearchRoute, codeCompareRoute, codeFileRoute]),
     worktreesRoute,
     worktreeRoute,
   ]),

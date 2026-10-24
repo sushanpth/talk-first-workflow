@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { router } from '@/router';
-import { parseCodeFileSearch } from '@/routes/code';
+import { CodeFilePage, ComparePage, parseCodeFileSearch, parseCompareSearch } from '@/routes/code';
 import { DocPage, DocsPage } from '@/routes/docs';
 import { sectionOf } from '@/routes/projects';
 
@@ -22,6 +22,14 @@ describe('docs routes', () => {
   });
 });
 
+describe('code routes', () => {
+  it('opens the compare page ahead of the file splat', () => {
+    expect(leaf('/p/x/code/compare').component).toBe(ComparePage);
+    expect(leaf('/p/x/code/src/compare').component).toBe(CodeFilePage);
+    expect(leaf('/p/x/code/compare/x.ts').params).toMatchObject({ _splat: 'compare/x.ts' });
+  });
+});
+
 describe('sectionOf', () => {
   it('finds the section of every page under a project', () => {
     const cases: [string, string][] = [
@@ -32,6 +40,7 @@ describe('sectionOf', () => {
       ['/p/x/docs/guide/intro.md', 'Docs'],
       ['/p/x/code', 'Code'],
       ['/p/x/code/search', 'Code'],
+      ['/p/x/code/compare', 'Code'],
       ['/p/x/code/src/app.ts', 'Code'],
       ['/p/x/worktrees/agent-1', 'Worktrees'],
     ];
@@ -49,6 +58,21 @@ describe('parseCodeFileSearch', () => {
     expect(parseCodeFileSearch({ view: 'rendered', line: '0' })).toEqual({
       view: undefined,
       line: undefined,
+    });
+  });
+});
+
+describe('parseCompareSearch', () => {
+  it('keeps only non-empty strings', () => {
+    expect(parseCompareSearch({ base: 'main', head: 'tf/x', file: 'a.ts' })).toEqual({
+      base: 'main',
+      head: 'tf/x',
+      file: 'a.ts',
+    });
+    expect(parseCompareSearch({ base: '', head: 3 })).toEqual({
+      base: undefined,
+      head: undefined,
+      file: undefined,
     });
   });
 });

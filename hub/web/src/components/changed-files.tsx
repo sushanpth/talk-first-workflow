@@ -1,5 +1,10 @@
-import type { ChangedFile } from '@/lib/api';
+import type { UseQueryResult } from '@tanstack/react-query';
+import { lazy, Suspense } from 'react';
+import { Empty, ErrorBox } from '@/components/query-state';
+import type { ChangedFile, FileDiff } from '@/lib/api';
 import { cn } from '@/lib/utils';
+
+const DiffView = lazy(() => import('@/components/diff-view'));
 
 export const STATUS: Record<string, { label: string; className: string }> = {
   M: { label: 'modified', className: 'text-amber-600 dark:text-amber-400' },
@@ -46,5 +51,28 @@ export function FileList({
         );
       })}
     </ul>
+  );
+}
+
+/** The selected file's diff, or why there is none. */
+export function FileDiffPane({
+  query,
+  sideBySide,
+}: {
+  query: UseQueryResult<FileDiff>;
+  sideBySide: boolean;
+}) {
+  if (query.isError) return <ErrorBox error={query.error} />;
+  if (!query.data) return <p className="p-4 text-sm text-muted-foreground">Loading...</p>;
+  if (query.data.binary) return <Empty>Binary or very large file; no text diff.</Empty>;
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading editor...</p>}>
+      <DiffView
+        path={query.data.path}
+        original={query.data.original}
+        modified={query.data.modified}
+        sideBySide={sideBySide}
+      />
+    </Suspense>
   );
 }

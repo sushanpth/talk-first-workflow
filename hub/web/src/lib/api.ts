@@ -20,6 +20,7 @@ export type {
   AgentWorktree,
   Brief,
   ChangedFile,
+  FileDiff,
   Link,
   Note,
   Page,

@@ -1,16 +1,25 @@
-import { Link, Outlet, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link, Outlet, useMatch, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { ChevronLeft, ChevronRight, GitCompareArrows } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
+import { FileDiffPane, FileList } from '@/components/changed-files';
 import { CodeSearchForm } from '@/components/code-search-form';
 import { CodeTree } from '@/components/code-tree';
 import { CopyButton, CopyLinkButton } from '@/components/copy-link-button';
 import { Markdown } from '@/components/markdown';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { QuickOpen } from '@/components/quick-open';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { ViewChip } from '@/components/view-chip';
 import { useProject } from '@/lib/api';
-import { CODE_SEARCH_PAGE_SIZE, type CodeSearchParams, useCodeFile, useCodeSearch } from '@/lib/code-api';
+import {
+  CODE_SEARCH_PAGE_SIZE,
+  type CodeSearchParams,
+  useBranchCompare,
+  useBranches,
+  useBranchFileDiff,
+  useCodeFile,
+  useCodeSearch,
+} from '@/lib/code-api';
 import { groupByFile, highlight } from '@/lib/code-search';
 import { copyPathText, effectiveView, isMarkdownPath, resolveRelative } from '@/lib/code-view';
 import { cn, formatSize } from '@/lib/utils';
@@ -34,6 +43,21 @@ export const parseCodeSearch = (search: Record<string, unknown>): CodeSearchPara
   offset: positiveInt(search.offset),
 });
 
+const nonEmpty = (value: unknown): string | undefined =>
+  typeof value === 'string' && value !== '' ? value : undefined;
+
+export interface CompareSearch {
+  base?: string;
+  head?: string;
+  file?: string;
+}
+
+export const parseCompareSearch = (search: Record<string, unknown>): CompareSearch => ({
+  base: nonEmpty(search.base),
+  head: nonEmpty(search.head),
+  file: nonEmpty(search.file),
+});
+
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const QUICK_OPEN_KEY = isMac ? '⌘P' : 'Ctrl+P';
 
@@ -41,6 +65,7 @@ export function CodeLayout() {
   const { project } = useParams({ from: '/p/$project/code' });
   const { _splat: current } = useParams({ strict: false });
   const [quickOpen, setQuickOpen] = useState(false);
+  const comparing = useMatch({ from: '/p/$project/code/compare', shouldThrow: false }) !== undefined;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -63,10 +88,22 @@ export function CodeLayout() {
           Go to file
           <kbd className="font-mono text-xs text-muted-foreground">{QUICK_OPEN_KEY}</kbd>
         </Button>
+        <Link
+          to="/p/$project/code/compare"
+          params={{ project }}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          <GitCompareArrows aria-hidden />
+          Compare
+        </Link>
         <CodeSearchForm project={project} />
       </div>
-      <div className="grid min-h-96 flex-1 grid-cols-[16rem_1fr] gap-3">
-        <aside className="overflow-auto rounded-md border p-1" data-section="code-tree">
+      <div className={cn('grid min-h-96 flex-1 gap-3', comparing ? 'grid-cols-1' : 'grid-cols-[16rem_1fr]')}>
+        {/* Hidden, not unmounted, so the tree keeps its open folders for the way back. */}
+        <aside
+          className={cn('overflow-auto rounded-md border p-1', comparing && 'hidden')}
+          data-section="code-tree"
+        >
           <CodeTree key={project} project={project} current={current} />
         </aside>
         <section className="flex min-w-0 flex-col overflow-hidden" data-section="code-main">
@@ -246,5 +283,111 @@ export function CodeSearchPage() {
         }}
       </QueryState>
     </div>
+  );
+}
+
+function BranchSelect({
+  label,
+  value,
+  branches,
+  onChange,
+}: {
+  label: string;
+  value: string | undefined;
+  branches: string[];
+  onChange: (branch: string) => void;
+}) {
+  // A branch named in the URL but gone from the repo still shows, so the error below makes sense.
+  const options = value && !branches.includes(value) ? [value, ...branches] : branches;
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 max-w-64 rounded-md border border-input bg-background px-2 font-mono text-sm"
+      >
+        {value === undefined && (
+          <option value="" disabled>
+            Pick a branch to compare
+          </option>
+        )}
+        {options.map((b) => (
+          <option key={b} value={b}>
+            {b}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function ComparePage() {
+  const { project } = useParams({ from: '/p/$project/code/compare' });
+  const search = useSearch({ from: '/p/$project/code/compare' });
+  const navigate = useNavigate({ from: '/p/$project/code/compare' });
+  const [sideBySide, setSideBySide] = useState(true);
+  const branches = useBranches(project);
+  const base = search.base ?? branches.data?.current ?? undefined;
+  const { head } = search;
+  const compare = useBranchCompare(project, base, head);
+  const selected = search.file ?? compare.data?.files[0]?.path;
+  const fileDiff = useBranchFileDiff(project, base, head, selected);
+  // Base goes into the URL with any pick, so a copied link survives a change of the checked-out branch.
+  const pick = (next: CompareSearch) => navigate({ search: { base, head, ...next, file: next.file } });
+
+  let body: ReactNode;
+  if (base === undefined || head === undefined) body = <Empty>Pick a branch to compare.</Empty>;
+  else if (compare.isPending) body = <Empty>Loading...</Empty>;
+  else if (compare.isError) body = <ErrorBox error={compare.error} />;
+  else {
+    const c = compare.data;
+    body = (
+      <>
+        <p className="font-mono text-xs text-muted-foreground">
+          merge-base {c.mergeBase.slice(0, 10)} · {c.head} {c.headCommit.slice(0, 10)}
+        </p>
+        {c.files.length === 0 ? (
+          <Empty>No changes.</Empty>
+        ) : (
+          <div className="grid min-h-0 flex-1 grid-cols-[18rem_1fr] gap-3">
+            <aside className="overflow-auto rounded-md border p-2" data-section="changed-files">
+              <FileList files={c.files} selected={selected} onSelect={(file) => pick({ file })} />
+            </aside>
+            <section className="min-w-0 overflow-hidden rounded-md border" data-section="diff">
+              <FileDiffPane query={fileDiff} sideBySide={sideBySide} />
+            </section>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <QueryState query={branches}>
+      {(list) => (
+        <div className="flex h-full min-h-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <BranchSelect
+              label="base"
+              value={base}
+              branches={list.branches}
+              onChange={(b) => pick({ base: b })}
+            />
+            <BranchSelect
+              label="head"
+              value={head}
+              branches={list.branches}
+              onChange={(b) => pick({ head: b })}
+            />
+            <Button variant="outline" size="sm" className="ml-auto" onClick={() => setSideBySide((v) => !v)}>
+              {sideBySide ? 'Inline view' : 'Side-by-side view'}
+            </Button>
+            <CopyLinkButton />
+          </div>
+          {body}
+        </div>
+      )}
+    </QueryState>
   );
 }
