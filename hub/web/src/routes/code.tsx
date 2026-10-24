@@ -1,18 +1,15 @@
 import { Link, Outlet, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Check, ChevronLeft, ChevronRight, Link2, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
+import { CodeSearchForm } from '@/components/code-search-form';
 import { CodeTree } from '@/components/code-tree';
+import { CopyLinkButton } from '@/components/copy-link-button';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { QuickOpen } from '@/components/quick-open';
 import { Button } from '@/components/ui/button';
-import {
-  CODE_SEARCH_PAGE_SIZE,
-  type CodeMatch,
-  type CodeSearchParams,
-  useCodeFile,
-  useCodeSearch,
-} from '@/lib/code-api';
-import { cn } from '@/lib/utils';
+import { CODE_SEARCH_PAGE_SIZE, type CodeSearchParams, useCodeFile, useCodeSearch } from '@/lib/code-api';
+import { groupByFile, highlight } from '@/lib/code-search';
+import { cn, formatSize } from '@/lib/utils';
 import { CODE_SEARCH_MAX_MATCHES, CODE_SEARCH_QUERY_MAX } from '../../../server/code-types.ts';
 
 const CodeViewer = lazy(() => import('@/components/code-viewer'));
@@ -34,60 +31,6 @@ export const parseCodeSearch = (search: Record<string, unknown>): CodeSearchPara
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const QUICK_OPEN_KEY = isMac ? '⌘P' : 'Ctrl+P';
-
-/** Search box in the code toolbar; it drives the search route. */
-function SearchForm({ project }: { project: string }) {
-  const current: CodeSearchParams = useSearch({ strict: false });
-  const navigate = useNavigate();
-  const [text, setText] = useState(current.q ?? '');
-  const [matchCase, setMatchCase] = useState(current.case ?? false);
-  // Follow back/forward and links that change the search.
-  useEffect(() => setText(current.q ?? ''), [current.q]);
-  useEffect(() => setMatchCase(current.case ?? false), [current.case]);
-
-  const run = (q: string, caseSensitive: boolean) => {
-    if (q === '') return;
-    navigate({
-      to: '/p/$project/code/search',
-      params: { project },
-      search: { q, case: caseSensitive || undefined },
-    });
-  };
-
-  return (
-    <form
-      className="flex min-w-64 flex-1 items-center gap-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(text, matchCase);
-      }}
-    >
-      <label className="flex h-8 flex-1 items-center gap-2 rounded-md border border-input bg-background px-2 focus-within:ring-[3px] focus-within:ring-ring/50">
-        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <input
-          type="search"
-          value={text}
-          maxLength={CODE_SEARCH_QUERY_MAX}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Search in files (exact text)"
-          aria-label="Search in files"
-          className="h-full flex-1 bg-transparent text-sm outline-none"
-        />
-      </label>
-      <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={matchCase}
-          onChange={(e) => {
-            setMatchCase(e.target.checked);
-            if (current.q) run(text, e.target.checked);
-          }}
-        />
-        Match case
-      </label>
-    </form>
-  );
-}
 
 export function CodeLayout() {
   const { project } = useParams({ from: '/p/$project/code' });
@@ -114,7 +57,7 @@ export function CodeLayout() {
           Go to file
           <kbd className="font-mono text-xs text-muted-foreground">{QUICK_OPEN_KEY}</kbd>
         </Button>
-        <SearchForm project={project} />
+        <CodeSearchForm project={project} />
       </div>
       <div className="grid h-[calc(100vh-14rem)] min-h-96 grid-cols-[16rem_1fr] gap-3">
         <aside className="overflow-auto rounded-md border p-1" data-section="code-tree">
@@ -137,36 +80,6 @@ export function CodeIndexPage() {
       </Empty>
     </div>
   );
-}
-
-function CopyLinkButton() {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(timer);
-  }, [copied]);
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() =>
-        navigator.clipboard?.writeText(window.location.href).then(
-          () => setCopied(true),
-          () => undefined,
-        )
-      }
-    >
-      {copied ? <Check aria-hidden /> : <Link2 aria-hidden />}
-      {copied ? 'Copied' : 'Copy link'}
-    </Button>
-  );
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function CodeFilePage() {
@@ -207,30 +120,6 @@ export function CodeFilePage() {
       <div className={cn('min-h-0 flex-1 overflow-hidden rounded-md border', simple && 'p-4')}>{body}</div>
     </div>
   );
-}
-
-/** Splits `text` around case-(in)sensitive matches of `q` for highlighting. */
-function highlight(text: string, q: string, matchCase: boolean): ReactNode[] {
-  const hay = matchCase ? text : text.toLowerCase();
-  const needle = matchCase ? q : q.toLowerCase();
-  const out: ReactNode[] = [];
-  let from = 0;
-  for (let at = hay.indexOf(needle); needle && at !== -1; at = hay.indexOf(needle, from)) {
-    out.push(text.slice(from, at), <mark key={at}>{text.slice(at, at + needle.length)}</mark>);
-    from = at + needle.length;
-  }
-  out.push(text.slice(from));
-  return out;
-}
-
-function groupByFile(matches: CodeMatch[]): { path: string; matches: CodeMatch[] }[] {
-  const groups: { path: string; matches: CodeMatch[] }[] = [];
-  for (const m of matches) {
-    const last = groups.at(-1);
-    if (last?.path === m.path) last.matches.push(m);
-    else groups.push({ path: m.path, matches: [m] });
-  }
-  return groups;
 }
 
 export function CodeSearchPage() {

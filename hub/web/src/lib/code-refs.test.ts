@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { describe, expect, it } from 'vitest';
-import { chunk, codeRefOf, remarkCodeRefs } from './code-refs.ts';
+import { codeRefOf, remarkCodeRefs } from './code-refs.ts';
 
 const REPO = '/home/user/example-project';
 
@@ -93,13 +93,5 @@ describe('codeRefOf', () => {
 
   it('answers null for a malformed escape instead of throwing', () => {
     expect(codeRefOf('coderef:%E0')).toBeNull();
-  });
-});
-
-describe('chunk', () => {
-  it('splits into batches of at most the given size', () => {
-    const refs = Array.from({ length: 205 }, (_, i) => `f${i}.ts`);
-    expect(chunk(refs, 100).map((c) => c.length)).toEqual([100, 100, 5]);
-    expect(chunk([], 100)).toEqual([]);
   });
 });

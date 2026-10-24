@@ -93,9 +93,3 @@ function visit(node: MdNode, repoRoot: string | undefined): void {
 export function remarkCodeRefs({ repoRoot }: { repoRoot?: string | null } = {}) {
   return (tree: MdNode) => visit(tree, repoRoot ?? undefined);
 }
-
-export function chunk<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}

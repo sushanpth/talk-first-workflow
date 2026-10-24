@@ -107,6 +107,11 @@ export interface CodeSearchPage extends Page<CodeMatch> {
 }
 
 // GET /projects/:id/code/resolve
+const REF_SEPARATOR = ',';
+
+/** The resolve route splits refs on commas, so a ref holding one can't be asked about. */
+export const refHasSeparator = (ref: string): boolean => ref.includes(REF_SEPARATOR);
+
 export const codeResolveQuerySchema = z.object({
   /** Comma-separated, repeated, or both; pass `c.req.queries('refs')` to keep repeats. Paths with commas can't be sent. */
   refs: z
@@ -114,7 +119,7 @@ export const codeResolveQuerySchema = z.object({
     .transform((v) => [
       ...new Set(
         (Array.isArray(v) ? v : [v])
-          .flatMap((s) => s.split(','))
+          .flatMap((s) => s.split(REF_SEPARATOR))
           .map((s) => s.trim())
           .filter(Boolean),
       ),

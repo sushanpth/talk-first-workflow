@@ -7,9 +7,10 @@ import {
   type CodeResolve,
   type CodeSearchPage,
   type CodeTree,
+  refHasSeparator,
 } from '../../../server/code-types.ts';
 import { get } from './api.ts';
-import { chunk } from './code-refs.ts';
+import { chunk } from './utils.ts';
 
 export type { CodeMatch, CodeRef, CodeTreeEntry } from '../../../server/code-types.ts';
 
@@ -77,8 +78,7 @@ function flushRefs(project: string): void {
 
 /** Queues a ref; every ref queued in the same tick (all of a page's links) goes out in one request. */
 function resolveRef(project: string, ref: string): Promise<CodeRef | null> {
-  // The resolve route splits refs on commas, so such a path can't be asked about.
-  if (ref.includes(',')) return Promise.resolve(null);
+  if (refHasSeparator(ref)) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     let batch = pendingRefs.get(project);
     if (!batch) {
