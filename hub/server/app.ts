@@ -2,6 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, relative } from 'node:path';
 import { type ErrorHandler, Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { labelWorktree, labelWorktrees } from './agents.ts';
 import {
   changedFiles,
   defaultBase,
@@ -69,12 +70,16 @@ export function createApp(options: AppOptions): Hono {
   const repoOf = (p: Project): string => p.repo ?? fail(404, 'this project has no repo on disk');
   const dump = async (id: string) => memoryDump((await project(id)).memoryDir);
 
-  const worktree = async (id: string, name: string): Promise<{ repo: string; tree: Worktree }> => {
-    const repo = repoOf(await project(id));
+  const worktree = async (
+    id: string,
+    name: string,
+  ): Promise<{ p: Project; repo: string; tree: Worktree }> => {
+    const p = await project(id);
+    const repo = repoOf(p);
     const tree = (await listWorktrees(repo)).find((w) => w.name === name) ?? fail(404, 'no such worktree');
     if (!(await realInside(await projects.roots(), tree.path)))
       fail(403, 'worktree is outside the allowed roots');
-    return { repo, tree };
+    return { p, repo, tree };
   };
 
   const baseFor = async (repo: string, tree: Worktree, ref: string | undefined): Promise<string> => {
@@ -126,13 +131,18 @@ export function createApp(options: AppOptions): Hono {
   });
 
   api.get('/projects/:id/worktrees', async (c) => {
-    return c.json(await listWorktrees(repoOf(await project(c.req.param('id')))));
+    const p = await project(c.req.param('id'));
+    return c.json(await labelWorktrees(p, await listWorktrees(repoOf(p))));
   });
 
   api.get('/projects/:id/worktrees/:name', async (c) => {
-    const { repo, tree } = await worktree(c.req.param('id'), c.req.param('name'));
+    const { p, repo, tree } = await worktree(c.req.param('id'), c.req.param('name'));
     const base = await baseFor(repo, tree, c.req.query('base'));
-    const result: WorktreeDiff = { ...tree, base, files: await changedFiles(tree.path, base) };
+    const result: WorktreeDiff = await labelWorktree(p, {
+      ...tree,
+      base,
+      files: await changedFiles(tree.path, base),
+    });
     return c.json(result);
   });
 

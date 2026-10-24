@@ -15,6 +15,7 @@ export const memoryStatusSchema = z.object({
   repo_root: z.string(),
   is_git: z.boolean(),
   memory_dir: z.string(),
+  legacy_dir: z.string(),
   note_count: z.number().int(),
 });
 
@@ -91,13 +92,23 @@ export interface Worktree {
   head: string;
 }
 
+/** What the hub knows about the agent that ran in a worktree, from Claude Code's records. */
+export interface AgentInfo {
+  task: string | null;
+  agentType: string | null;
+  agentId: string | null;
+  briefPath: string | null;
+}
+
+export interface AgentWorktree extends Worktree, AgentInfo {}
+
 export interface ChangedFile {
   status: string;
   path: string;
   oldPath?: string;
 }
 
-export interface WorktreeDiff extends Worktree {
+export interface WorktreeDiff extends AgentWorktree {
   base: string;
   files: ChangedFile[];
 }

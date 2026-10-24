@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type {
+  AgentWorktree,
   Brief,
   DocFile,
   FileDiff,
@@ -7,11 +8,10 @@ import type {
   Note,
   PlanSummary,
   Project,
-  Worktree,
   WorktreeDiff,
 } from '../../../server/types.ts';
 
-export type { Brief, ChangedFile, Link, Note, Project } from '../../../server/types.ts';
+export type { AgentWorktree, Brief, ChangedFile, Link, Note, Project } from '../../../server/types.ts';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -67,7 +67,10 @@ export const useDoc = (project: string, path: string) =>
   });
 
 export const useWorktrees = (project: string) =>
-  useQuery({ queryKey: ['worktrees', project], queryFn: () => get<Worktree[]>(`${p(project)}/worktrees`) });
+  useQuery({
+    queryKey: ['worktrees', project],
+    queryFn: () => get<AgentWorktree[]>(`${p(project)}/worktrees`),
+  });
 
 export const useWorktreeDiff = (project: string, name: string, base?: string) =>
   useQuery({
