@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import { Hono } from 'hono';
 import { fileOnDisk, trackedMarkdown } from '../git.ts';
-import { paginate } from '../paginate.ts';
+import { paginateFilling } from '../paginate.ts';
 import { modifiedAt, realInside } from '../paths.ts';
 import { type DocPage, type DocSummary, listQuerySchemas } from '../types.ts';
 import { fail, listQuery, type RouteContext } from './context.ts';
 
 // Only stat files whose real path stays in the repo, so a symlink can't reveal an outside file.
-async function docSummary(repo: string, path: string): Promise<DocSummary> {
+async function withModified(repo: string, { path }: DocSummary): Promise<DocSummary> {
   const real = await realInside([repo], join(repo, path));
   return { path, modified: real ? await modifiedAt(real) : null };
 }
@@ -18,11 +18,14 @@ export function docRoutes(ctx: RouteContext): Hono {
   routes.get('/projects/:id/docs', async (c) => {
     const query = listQuery(c, listQuerySchemas.docs);
     const repo = ctx.repoOf(await ctx.project(c.req.param('id')));
-    const docs = await Promise.all((await trackedMarkdown(repo)).map((path) => docSummary(repo, path)));
-    const page: DocPage = paginate(docs, query, {
-      text: (d) => [d.path],
-      keys: { path: (d) => d.path, modified: (d) => d.modified },
-    });
+    const docs = (await trackedMarkdown(repo)).map((path): DocSummary => ({ path, modified: null }));
+    const page: DocPage = await paginateFilling(
+      docs,
+      query,
+      { text: (d) => [d.path], keys: { path: (d) => d.path, modified: (d) => d.modified } },
+      'modified',
+      (d) => withModified(repo, d),
+    );
     return c.json(page);
   });
 
