@@ -35,6 +35,20 @@ def claude_home() -> Path:
     return Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")).expanduser()
 
 
+def claude_homes() -> list[Path]:
+    """CLAUDE_CONFIG_DIR, ~/.claude and every ~/.claude-* with a projects folder, so the hub sees every config folder."""
+    home = Path.home()
+    configured = os.environ.get("CLAUDE_CONFIG_DIR")
+    extra = sorted(p for p in home.glob(".claude-*") if (p / "projects").is_dir())
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for path in ([Path(configured).expanduser()] if configured else []) + [home / ".claude", *extra]:
+        if path.resolve() not in seen:
+            seen.add(path.resolve())
+            found.append(path)
+    return found
+
+
 def sanitize(path: Path) -> str:
     # Mirrors Claude Code's ~/.claude/projects/<sanitized-cwd> naming.
     return re.sub(r"[^A-Za-z0-9]", "-", str(path))
@@ -103,6 +117,12 @@ def legacy_dir(root: Path) -> Path:
     return claude_home() / "projects" / sanitize(root) / "memory"
 
 
+def transcript_dirs(root: Path) -> list[str]:
+    """Claude Code's session folders for this repo, across every config folder."""
+    dirs = (home / "projects" / sanitize(root) for home in claude_homes())
+    return [str(d) for d in dirs if d.is_dir()]
+
+
 def note_files(directory: Path) -> list[Path]:
     if not directory.is_dir():
         return []
@@ -130,6 +150,7 @@ def status(cwd: Path) -> dict:
         "legacy_count": len(note_files(legacy)),
         "note_count": len(note_files(memory_dir)),
         "index_lines": len([line for line in index_lines if line.strip()]),
+        "transcript_dirs": transcript_dirs(root),
     }
 
 
@@ -407,12 +428,14 @@ def projects() -> list[dict]:
         return []
     found = []
     for folder in sorted(p for p in root.iterdir() if (p / ".source").is_file()):
+        repo = (folder / ".source").read_text().strip()
         found.append({
             "name": folder.name,
             "memory_dir": str(folder),
-            "repo": (folder / ".source").read_text().strip(),
+            "repo": repo,
             "note_count": len(note_files(folder)),
             "brief_count": len(brief_files(folder)),
+            "transcript_dirs": transcript_dirs(Path(repo)),
         })
     return found
 

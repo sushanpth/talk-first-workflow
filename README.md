@@ -73,7 +73,7 @@ flowchart TB
 - **Agents** do the building and reviewing. Each one runs as a separate Claude Code sub-agent.
 - **`scripts/memory.py`** is the one place that reads and writes memory: setup, the note format check, search, and JSON for the hub. It uses the Python standard library only.
 - **The memory folder** is `~/memory/<project>/` by default, with saved plans in `briefs/`.
-- **The hub** is a small local web app: `hub/cli.ts` starts a Hono server, which serves a React app. It reads memory only through `memory.py`, and reads git and Claude Code's transcripts folder directly.
+- **The hub** is a small local web app: `hub/cli.ts` starts a Hono server, which serves a React app. It reads memory only through `memory.py`, and reads git and Claude Code's transcript folders directly.
 
 ## Features
 
@@ -160,18 +160,24 @@ Every page has its own URL. The agent opens the hub for you at two moments: **Op
 node hub/cli.ts open                         # the current repo's project page
 node hub/cli.ts open plan <path>             # also: note <path>, doc <repo> <path>, worktree <path> [--base <sha>], project <repo>
 node hub/cli.ts open --print-url ...         # print the URL instead of opening a browser
+node hub/cli.ts restart                      # stop the running hub and start this plugin's version, without a browser
 node hub/cli.ts stop
 ```
 
-It needs Node.js 22.18 or newer and pnpm. The first run (and the first run after the plugin updates) runs `pnpm install --frozen-lockfile` and builds the UI into `~/.cache/talk-first-workflow/hub/dist`, which takes a few seconds. The server starts in the background, is reused by later commands, and exits after 30 idle minutes.
+It needs Node.js 22.18 or newer and pnpm. The first run (and the first run after the plugin updates) runs `pnpm install --frozen-lockfile` and builds the UI into `~/.cache/talk-first-workflow/hub/dist/<hash>/`, which takes a few seconds. The two most recently used builds are kept and older ones are deleted; a plain `pnpm build` in `hub/` writes to `dist/dev` instead. The server starts in the background, is reused by later commands, and exits after 30 idle minutes.
+
+The hub runs on port 47321, or on `TALK_FIRST_HUB_PORT` when that is set. If another program already listens on the port, the hub exits with an error that asks you to set `TALK_FIRST_HUB_PORT`.
+
+One hub serves every Claude config folder on the machine, so sessions started with different `CLAUDE_CONFIG_DIR` settings share it. When their plugin versions differ, the newest version wins: an older hub is stopped and replaced, and an older plugin reuses a newer hub that is already running. For the same version, a hub built from different sources is restarted. Agent labels come from the transcripts in `~/.claude`, every `~/.claude-*` folder that has a `projects/` folder, and `CLAUDE_CONFIG_DIR` when it is set, whichever session started the hub.
 
 Security model:
 
-- It listens on 127.0.0.1 only, on a random free port.
+- It listens on 127.0.0.1 only, on port 47321 or `TALK_FIRST_HUB_PORT`.
 - The URL it opens carries a random token. The server swaps it for an HttpOnly, SameSite=Strict cookie, and every API call needs that cookie or the token.
 - Requests whose Host header isn't `127.0.0.1:<port>` or `localhost:<port>` are refused, which blocks DNS-rebinding attacks. It sends no CORS headers.
-- It only reads files inside each project's repo, memory folder and Claude Code transcripts folder, using real paths so symlinks and `..` can't escape, and it never writes to them. Git and `memory.py` run with argument lists, never through a shell.
-- The token is kept in `~/.cache/talk-first-workflow/hub/state.json`, readable only by you.
+- It only reads files inside each project's repo, memory folder and Claude Code transcript folders, using real paths so symlinks and `..` can't escape, and it never writes to them. Git and `memory.py` run with argument lists, never through a shell.
+- The token is made once and kept in a `token` file in `~/.cache/talk-first-workflow/hub/`, readable only by you (mode 0600). It survives restarts, so open tabs keep working.
+- Before `cli.ts` sends the token to whatever holds the port, it checks that the listener is your hub: it sends a random challenge, and the hub answers with an HMAC of it keyed by the token. A listener that can't answer counts as another program. The launcher only stops a hub whose pid also matches `state.json`, and only opens URLs on the hub's own origin.
 
 ## Privacy
 
@@ -211,10 +217,10 @@ python3 -m pytest -q                         # unit and hook tests
 claude plugin validate .                     # manifest check
 cd hub && pnpm install --frozen-lockfile     # hub dependencies
 pnpm typecheck && pnpm lint && pnpm test     # hub checks: tsc, Biome, vitest
-pnpm build                                   # hub UI build (the launcher does this itself)
+pnpm build                                   # hub UI build into <hub home>/dist/dev (the launcher builds its own)
 ```
 
-Set `TALK_FIRST_HUB_HOME` to a scratch folder when testing the hub, so your own hub build in `~/.cache` isn't replaced.
+Set `TALK_FIRST_HUB_HOME` to a scratch folder and `TALK_FIRST_HUB_PORT` to a free port when testing the hub, so your own hub in `~/.cache` and on port 47321 isn't touched.
 
 Bump `version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` in each PR, following [Semantic Versioning](https://semver.org). The two must match, because `claude plugin update` only picks up a change when the version goes up. See `CLAUDE.md` for details.
 

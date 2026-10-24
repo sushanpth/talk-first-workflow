@@ -28,10 +28,16 @@ export function git(cwd: string, ...args: string[]): string {
 
 export interface Fixture {
   tmp: string;
+  /** HOME for memory.py, so it never scans the real Claude config folders. */
+  home: string;
   memoryRoot: string;
   memoryDir: string;
   repo: string;
 }
+
+/** Claude Code's transcripts folder for `repo` under a config folder. */
+export const transcriptsIn = (claudeHome: string, repo: string): string =>
+  join(claudeHome, 'projects', repo.replace(/[^A-Za-z0-9]/g, '-'));
 
 /** A temp git repo "shop" with a memory folder holding two linked notes and a brief. */
 export function makeFixture(): Fixture {
@@ -42,6 +48,9 @@ export function makeFixture(): Fixture {
   process.env.TALK_FIRST_MEMORY_ROOT = memoryRoot;
   process.env.CLAUDE_CONFIG_DIR = join(tmp, 'claude');
   process.env.TALK_FIRST_HUB_HOME = join(tmp, 'hub');
+  const home = join(tmp, 'home');
+  process.env.HOME = home;
+  mkdirSync(home);
   mkdirSync(repo, { recursive: true });
   git(repo, 'init', '-q', '-b', 'main');
   write(join(repo, 'README.md'), '# Shop\n');
@@ -54,5 +63,5 @@ export function makeFixture(): Fixture {
   write(join(memoryDir, 'auth.md'), note('auth', 'Uses cookies. See [[redis]].'));
   write(join(memoryDir, 'redis.md'), note('redis', 'Key layout.'));
   write(join(memoryDir, 'briefs', '2026-10-23-login.md'), '# Brief: Login page\n\nGoal: [[auth]]\n');
-  return { tmp, memoryRoot, memoryDir, repo };
+  return { tmp, home, memoryRoot, memoryDir, repo };
 }

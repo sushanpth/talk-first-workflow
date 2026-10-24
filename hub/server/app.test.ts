@@ -2,8 +2,9 @@ import { mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.ts';
-import { type Fixture, git, makeFixture, write } from './fixtures.test-helper.ts';
+import { type Fixture, git, makeFixture, transcriptsIn, write } from './fixtures.test-helper.ts';
 import { ProjectStore, registerRepo } from './projects.ts';
+import { helloProof } from './security.ts';
 import { hubPaths } from './state.ts';
 
 const TOKEN = 'test-token-0123456789';
@@ -19,7 +20,14 @@ beforeEach(() => {
   mkdirSync(join(dist, 'assets'), { recursive: true });
   writeFileSync(join(dist, 'index.html'), '<!doctype html><div id="root"></div>');
   writeFileSync(join(dist, 'assets', 'app.js'), 'console.log(1)');
-  app = createApp({ token: TOKEN, port: () => PORT, projects: new ProjectStore(hubPaths()), dist });
+  app = createApp({
+    token: TOKEN,
+    port: () => PORT,
+    projects: new ProjectStore(hubPaths()),
+    dist,
+    version: '1.2.3',
+    build: 'abc',
+  });
 });
 afterEach(() => rmSync(fx.tmp, { recursive: true, force: true }));
 
@@ -62,6 +70,8 @@ describe('token, cookie and Host checks', () => {
       port: () => PORT,
       projects: new ProjectStore(hubPaths()),
       dist: join(fx.tmp, 'dist'),
+      version: '1.2.3',
+      build: 'abc',
       onActivity: () => {
         hits += 1;
       },
@@ -77,6 +87,37 @@ describe('token, cookie and Host checks', () => {
   it('accepts the token in the query or the cookie', async () => {
     expect((await get(`/api/health?token=${TOKEN}`)).status).toBe(200);
     expect((await get('/api/health', { cookie: `tfw_hub=${TOKEN}` })).status).toBe(200);
+  });
+
+  it('reports which hub it is on /api/health', async () => {
+    expect((await api('/api/health')).body).toEqual({
+      ok: true,
+      app: 'talk-first-hub',
+      pid: process.pid,
+      version: '1.2.3',
+      build: 'abc',
+    });
+  });
+
+  it('answers the hello challenge without the token, with a proof bound to the token and port', async () => {
+    const nonce = 'n'.repeat(32);
+    const res = await get(`/api/hello?nonce=${nonce}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('set-cookie')).toBeNull();
+    expect(await res.json()).toEqual({
+      ok: true,
+      app: 'talk-first-hub',
+      pid: process.pid,
+      version: '1.2.3',
+      build: 'abc',
+      proof: helloProof(TOKEN, PORT, nonce),
+    });
+    expect(helloProof(TOKEN, PORT, nonce)).not.toBe(helloProof(TOKEN, PORT + 1, nonce));
+    expect((await get('/api/hello?nonce=short')).status).toBe(400);
+    expect((await get('/api/hello')).status).toBe(400);
+    expect(
+      (await app.request(`/api/hello?nonce=${nonce}`, { headers: { host: 'evil.example' } })).status,
+    ).toBe(403);
   });
 
   it('sets an HttpOnly SameSite=Strict cookie and strips the token from page URLs', async () => {
@@ -129,9 +170,12 @@ describe('API', () => {
     });
   });
 
-  it('allows reading repos, memory folders and the transcripts dir', async () => {
-    const transcripts = join(fx.tmp, 'claude', 'projects', fx.repo.replace(/[^A-Za-z0-9]/g, '-'));
-    expect(await new ProjectStore(hubPaths()).roots()).toEqual([fx.repo, fx.memoryDir, transcripts]);
+  it('allows reading repos, memory folders and every transcripts dir', async () => {
+    const transcripts = [join(fx.tmp, 'claude'), join(fx.home, '.claude-work')].map((h) =>
+      transcriptsIn(h, fx.repo),
+    );
+    for (const dir of transcripts) mkdirSync(dir, { recursive: true });
+    expect(await new ProjectStore(hubPaths()).roots()).toEqual([fx.repo, fx.memoryDir, ...transcripts]);
   });
 
   it('serves plans and memory notes', async () => {
