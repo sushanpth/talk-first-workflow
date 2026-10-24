@@ -19,7 +19,14 @@ beforeEach(() => {
   mkdirSync(join(dist, 'assets'), { recursive: true });
   writeFileSync(join(dist, 'index.html'), '<!doctype html><div id="root"></div>');
   writeFileSync(join(dist, 'assets', 'app.js'), 'console.log(1)');
-  app = createApp({ token: TOKEN, port: () => PORT, projects: new ProjectStore(hubPaths()), dist });
+  app = createApp({
+    token: TOKEN,
+    port: () => PORT,
+    projects: new ProjectStore(hubPaths()),
+    dist,
+    version: '1.2.3',
+    build: 'abc',
+  });
 });
 afterEach(() => rmSync(fx.tmp, { recursive: true, force: true }));
 
@@ -62,6 +69,8 @@ describe('token, cookie and Host checks', () => {
       port: () => PORT,
       projects: new ProjectStore(hubPaths()),
       dist: join(fx.tmp, 'dist'),
+      version: '1.2.3',
+      build: 'abc',
       onActivity: () => {
         hits += 1;
       },
@@ -77,6 +86,16 @@ describe('token, cookie and Host checks', () => {
   it('accepts the token in the query or the cookie', async () => {
     expect((await get(`/api/health?token=${TOKEN}`)).status).toBe(200);
     expect((await get('/api/health', { cookie: `tfw_hub=${TOKEN}` })).status).toBe(200);
+  });
+
+  it('reports which hub it is on /api/health', async () => {
+    expect((await api('/api/health')).body).toEqual({
+      ok: true,
+      app: 'talk-first-hub',
+      pid: process.pid,
+      version: '1.2.3',
+      build: 'abc',
+    });
   });
 
   it('sets an HttpOnly SameSite=Strict cookie and strips the token from page URLs', async () => {
