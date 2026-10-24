@@ -17,9 +17,9 @@ const MIME: Record<string, string> = {
   '.wasm': 'application/wasm',
 };
 
-// Monaco sets inline styles; images in docs may come from the web.
+// Monaco sets inline styles. No remote images, so untrusted markdown can't track the reader.
 const CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
   "font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /** The built web app: assets from `dist`, and index.html for every other path so the router can take it. */

@@ -39,8 +39,12 @@ function remarkWikiLinks() {
   return (tree: MdNode) => visit(tree);
 }
 
-const urlTransform = (url: string) =>
-  url.startsWith(WIKI_PREFIX) || codeRefOf(url) !== null ? url : defaultUrlTransform(url);
+const DATA_IMAGE_RE = /^data:image\//i;
+
+const urlTransform = (url: string, key: string) =>
+  url.startsWith(WIKI_PREFIX) || codeRefOf(url) !== null || (key === 'src' && DATA_IMAGE_RE.test(url))
+    ? url
+    : defaultUrlTransform(url);
 
 /** Links a code-ref candidate into the code viewer once the hub confirms it's a tracked file. */
 function CodeRefLink({
@@ -88,6 +92,17 @@ export function Markdown({ text, project, links = [], renderLink }: MarkdownProp
         }
         urlTransform={urlTransform}
         components={{
+          // Remote images would let untrusted repos track the reader, and there's no endpoint for repo files.
+          img: ({ src, alt = '' }) => {
+            const url = typeof src === 'string' ? src : '';
+            return DATA_IMAGE_RE.test(url) ? (
+              <img src={url} alt={alt} />
+            ) : (
+              <span className="text-muted-foreground italic" title={url}>
+                {alt || url}
+              </span>
+            );
+          },
           a: ({ href = '', children }) => {
             if (href.startsWith(WIKI_PREFIX)) {
               const target = decodeURIComponent(href.slice(WIKI_PREFIX.length));

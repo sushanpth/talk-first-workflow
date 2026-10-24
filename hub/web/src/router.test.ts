@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { router } from '@/router';
+import { parseCodeFileSearch } from '@/routes/code';
 import { DocPage, DocsPage } from '@/routes/docs';
 import { sectionOf } from '@/routes/projects';
 
@@ -39,5 +40,15 @@ describe('sectionOf', () => {
 
   it('falls back to plans outside a section', () => {
     expect(sectionOf(leaf('/').routeId).label).toBe('Plans');
+  });
+});
+
+describe('parseCodeFileSearch', () => {
+  it('keeps only view=source and positive lines', () => {
+    expect(parseCodeFileSearch({ view: 'source', line: '7' })).toEqual({ view: 'source', line: 7 });
+    expect(parseCodeFileSearch({ view: 'rendered', line: '0' })).toEqual({
+      view: undefined,
+      line: undefined,
+    });
   });
 });
