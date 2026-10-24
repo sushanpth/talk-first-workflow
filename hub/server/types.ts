@@ -128,6 +128,22 @@ export interface FileDiff extends ChangedFile {
   binary: boolean;
 }
 
+/** `GET /projects/:id/code/branches` */
+export interface BranchList {
+  branches: string[];
+  /** The main checkout's branch; null when it is detached. */
+  current: string | null;
+}
+
+/** `GET /projects/:id/code/compare`: what `head` changed since its merge-base with `base`. */
+export interface BranchCompare {
+  base: string;
+  head: string;
+  mergeBase: string;
+  headCommit: string;
+  files: ChangedFile[];
+}
+
 // List paging: every list route filters, sorts and pages on the server.
 export const LIST_LIMIT_DEFAULT = 50;
 export const LIST_LIMIT_MAX = 200;

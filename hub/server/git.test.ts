@@ -4,10 +4,13 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { git, makeFixture, write } from './fixtures.test-helper.ts';
 import {
+  branchChanges,
   changedFiles,
   defaultBase,
   fileOnDisk,
   listWorktrees,
+  localBranches,
+  mergeBase,
   parseNameStatus,
   parseWorktreeList,
   resolveCommit,
@@ -119,4 +122,48 @@ describe('worktree diffs', () => {
     execFileSync('mkfifo', [join(fx.repo, 'src', 'app.txt')]);
     expect(await fileOnDisk(fx.repo, 'src/app.txt')).toBeNull();
   }, 2000);
+});
+
+describe('branch comparison', () => {
+  let tmp = '';
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  it('lists local branches only, by full name', async () => {
+    const fx = makeFixture();
+    tmp = fx.tmp;
+    git(fx.repo, 'branch', 'feature/x');
+    git(fx.repo, 'tag', 'v1');
+    git(fx.repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    expect(await localBranches(fx.repo)).toEqual(['feature/x', 'main']);
+  });
+
+  it('lists only the head branch changes since the merge-base', async () => {
+    const fx = makeFixture();
+    tmp = fx.tmp;
+    git(fx.repo, 'checkout', '-qb', 'feature');
+    write(join(fx.repo, 'src', 'app.txt'), 'one\nTWO\n');
+    git(fx.repo, 'mv', 'docs/guide.md', 'docs/handbook.md');
+    git(fx.repo, 'commit', '-qam', 'feature work');
+    git(fx.repo, 'checkout', '-q', 'main');
+    // Base moves on after head branched; these changes must not show.
+    write(join(fx.repo, 'README.md'), '# Shop v2\n');
+    write(join(fx.repo, 'main-only.txt'), 'x\n');
+    git(fx.repo, 'add', '.');
+    git(fx.repo, 'commit', '-qm', 'main moves on');
+
+    const from = await mergeBase(fx.repo, 'refs/heads/main', 'refs/heads/feature');
+    expect(from).toBe(git(fx.repo, 'rev-parse', 'main~1').trim());
+    expect(await branchChanges(fx.repo, from ?? '', 'refs/heads/feature')).toEqual([
+      { status: 'R', path: 'docs/handbook.md', oldPath: 'docs/guide.md' },
+      { status: 'M', path: 'src/app.txt' },
+    ]);
+  });
+
+  it('finds no merge-base for unrelated histories', async () => {
+    const fx = makeFixture();
+    tmp = fx.tmp;
+    git(fx.repo, 'checkout', '-q', '--orphan', 'other');
+    git(fx.repo, 'commit', '-qm', 'unrelated');
+    expect(await mergeBase(fx.repo, 'refs/heads/main', 'refs/heads/other')).toBeNull();
+  });
 });

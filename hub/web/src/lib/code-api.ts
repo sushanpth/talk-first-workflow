@@ -9,6 +9,7 @@ import {
   type CodeTree,
   refHasSeparator,
 } from '../../../server/code-types.ts';
+import type { BranchCompare, BranchList, FileDiff } from '../../../server/types.ts';
 import { get } from './api.ts';
 import { chunk } from './utils.ts';
 
@@ -56,6 +57,34 @@ export const useCodeSearch = (
       get<CodeSearchPage>(
         `${code(project)}/search?q=${enc(q)}&case=${matchCase}&limit=${CODE_SEARCH_PAGE_SIZE}&offset=${offset}`,
       ),
+  });
+
+export const useBranches = (project: string) =>
+  useQuery({
+    queryKey: ['branches', project],
+    queryFn: () => get<BranchList>(`${code(project)}/branches`),
+  });
+
+const pair = (base: string, head: string) => `base=${enc(base)}&head=${enc(head)}`;
+
+export const useBranchCompare = (project: string, base: string | undefined, head: string | undefined) =>
+  useQuery({
+    queryKey: ['branch-compare', project, base, head],
+    enabled: base !== undefined && head !== undefined,
+    queryFn: () => get<BranchCompare>(`${code(project)}/compare?${pair(base ?? '', head ?? '')}`),
+  });
+
+export const useBranchFileDiff = (
+  project: string,
+  base: string | undefined,
+  head: string | undefined,
+  path: string | undefined,
+) =>
+  useQuery({
+    queryKey: ['branch-file-diff', project, base, head, path],
+    enabled: base !== undefined && head !== undefined && path !== undefined,
+    queryFn: () =>
+      get<FileDiff>(`${code(project)}/compare/file?${pair(base ?? '', head ?? '')}&path=${enc(path ?? '')}`),
   });
 
 type Waiter = { resolve: (ref: CodeRef | null) => void; reject: (error: unknown) => void };

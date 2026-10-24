@@ -1,6 +1,15 @@
 import { Hono } from 'hono';
 import { labelWorktree, labelWorktrees } from '../agents.ts';
-import { changedFiles, defaultBase, fileAtCommit, fileOnDisk, listWorktrees, resolveCommit } from '../git.ts';
+import {
+  changedFiles,
+  defaultBase,
+  EMPTY_TEXT,
+  fileAtCommit,
+  fileDiffOf,
+  fileOnDisk,
+  listWorktrees,
+  resolveCommit,
+} from '../git.ts';
 import { paginate } from '../paginate.ts';
 import { realInside } from '../paths.ts';
 import {
@@ -63,18 +72,13 @@ export function worktreeRoutes(ctx: RouteContext): Hono {
       (await changedFiles(tree.path, base)).find((f) => f.path === path) ?? fail(404, 'file not changed');
     const before =
       change.status === 'A' || change.status === '?'
-        ? { text: '', binary: false }
+        ? EMPTY_TEXT
         : await fileAtCommit(tree.path, base, change.oldPath ?? change.path);
     const after =
       change.status === 'D'
-        ? { text: '', binary: false }
+        ? EMPTY_TEXT
         : ((await fileOnDisk(tree.path, change.path)) ?? fail(403, 'path is outside the worktree'));
-    const result: FileDiff = {
-      ...change,
-      original: before.text,
-      modified: after.text,
-      binary: before.binary || after.binary,
-    };
+    const result: FileDiff = fileDiffOf(change, before, after);
     return c.json(result);
   });
 

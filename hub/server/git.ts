@@ -1,7 +1,7 @@
 import { basename, join } from 'node:path';
 import { withRegularFile } from './paths.ts';
 import { run, runBuffer } from './run.ts';
-import type { ChangedFile, Worktree } from './types.ts';
+import type { ChangedFile, FileDiff, Worktree } from './types.ts';
 
 const git = (cwd: string, ...args: string[]) => run('git', args, cwd);
 
@@ -82,11 +82,39 @@ export async function listWorktrees(repo: string): Promise<Worktree[]> {
 
 const REF_RE = /^[A-Za-z0-9][A-Za-z0-9._/~^@{}-]*$/;
 
+async function verifyCommit(cwd: string, rev: string): Promise<string | null> {
+  try {
+    return (await git(cwd, 'rev-parse', '--verify', '--quiet', '--end-of-options', `${rev}^{commit}`)).trim();
+  } catch {
+    return null;
+  }
+}
+
 /** Resolves a user-supplied ref to a commit sha, refusing anything that could read as an option. */
 export async function resolveCommit(cwd: string, ref: string): Promise<string | null> {
   if (!REF_RE.test(ref) || ref.length > 200) return null;
+  return verifyCommit(cwd, ref);
+}
+
+/** Local branch names (`refs/heads`), A to Z. */
+export async function localBranches(repo: string): Promise<string[]> {
+  // Ref names can't hold control characters, so newline-separated output is unambiguous.
+  const out = await git(repo, 'for-each-ref', '--format=%(refname)', 'refs/heads');
+  const prefix = 'refs/heads/';
+  return out
+    .split('\n')
+    .filter((ref) => ref.startsWith(prefix))
+    .map((ref) => ref.slice(prefix.length));
+}
+
+/** A local branch's commit; `name` must come from `localBranches`, so no ref syntax is checked here. */
+export const branchCommit = (repo: string, name: string): Promise<string | null> =>
+  verifyCommit(repo, `refs/heads/${name}`);
+
+/** Null when the two commits share no history. */
+export async function mergeBase(repo: string, a: string, b: string): Promise<string | null> {
   try {
-    return (await git(cwd, 'rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`)).trim();
+    return (await git(repo, 'merge-base', '--end-of-options', a, b)).trim();
   } catch {
     return null;
   }
@@ -110,11 +138,25 @@ export async function changedFiles(worktreePath: string, base: string): Promise<
   return files;
 }
 
+/** Committed changes between two commits; untracked files never appear. */
+export async function branchChanges(repo: string, from: string, to: string): Promise<ChangedFile[]> {
+  return parseNameStatus(
+    await git(repo, 'diff', '--name-status', '-M', '-z', '--end-of-options', from, to, '--'),
+  );
+}
+
 const MAX_FILE = 4 * 1024 * 1024;
 
 export interface Text {
   text: string;
   binary: boolean;
+}
+
+/** The missing side of an added or deleted file. */
+export const EMPTY_TEXT: Text = { text: '', binary: false };
+
+export function fileDiffOf(change: ChangedFile, before: Text, after: Text): FileDiff {
+  return { ...change, original: before.text, modified: after.text, binary: before.binary || after.binary };
 }
 
 function toText(buffer: Buffer): Text {
