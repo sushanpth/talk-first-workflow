@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createToken } from './security.ts';
@@ -84,6 +84,13 @@ export function readToken(paths: HubPaths): string | null {
 
 /** The token is made once and kept, so the cookie and open tabs survive server restarts. */
 export function ensureToken(paths: HubPaths): string {
+  const token = readOrCreateToken(paths);
+  // `mode` only applies when a file is created, so an existing file is fixed here.
+  if (statSync(paths.token).mode & 0o077) chmodSync(paths.token, 0o600);
+  return token;
+}
+
+function readOrCreateToken(paths: HubPaths): string {
   const existing = readToken(paths);
   if (existing) return existing;
   ensureHome(paths);

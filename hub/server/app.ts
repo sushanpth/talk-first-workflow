@@ -9,7 +9,7 @@ import { projectRoutes } from './routes/projects.ts';
 import { resolveRoutes } from './routes/resolve.ts';
 import { staticRoutes } from './routes/static.ts';
 import { worktreeRoutes } from './routes/worktrees.ts';
-import { guard, requireAuth } from './security.ts';
+import { guard, helloProof, NONCE, requireAuth } from './security.ts';
 import { HUB_APP } from './state.ts';
 
 export interface AppOptions {
@@ -17,7 +17,7 @@ export interface AppOptions {
   port: () => number;
   projects: ProjectStore;
   dist: string;
-  /** Reported by /api/health so a launcher can tell which hub holds the port. */
+  /** Reported by /api/hello and /api/health so a launcher can tell which hub holds the port. */
   version: string;
   build: string;
   onActivity?: () => void;
@@ -38,9 +38,20 @@ export function createApp(options: AppOptions): Hono {
   app.onError(onError);
   api.onError(onError);
 
-  api.get('/health', (c) =>
-    c.json({ ok: true, app: HUB_APP, pid: process.pid, version: options.version, build: options.build }),
-  );
+  const hubInfo = () => ({
+    ok: true,
+    app: HUB_APP,
+    pid: process.pid,
+    version: options.version,
+    build: options.build,
+  });
+  // The one unauthenticated API route: the launcher must know it's our hub before it sends the token.
+  app.get('/api/hello', (c) => {
+    const nonce = c.req.query('nonce') ?? '';
+    if (!NONCE.test(nonce)) return c.json({ error: 'bad nonce' }, 400);
+    return c.json({ ...hubInfo(), proof: helloProof(options.token, options.port(), nonce) });
+  });
+  api.get('/health', (c) => c.json(hubInfo()));
 
   const ctx = routeContext(options.projects);
   for (const routes of [

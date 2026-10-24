@@ -1,5 +1,14 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { type AddressInfo, createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -12,6 +21,7 @@ import {
   planFor,
   probePort,
   pruneBuilds,
+  resolveUrl,
   stopServer,
   type Target,
 } from './launcher.ts';
@@ -23,6 +33,7 @@ import {
   pluginVersion,
   readState,
   readToken,
+  writeState,
 } from './state.ts';
 
 const cwd = '/work/repo';
@@ -129,15 +140,33 @@ let port: number;
 let target: Target;
 let children: ChildProcess[];
 
+interface FakeOptions {
+  /** Answers the hello challenge with a proof made from this token. */
+  token?: string;
+  /** Reports this pid instead of its own. */
+  pid?: number;
+}
+
 // A stand-in hub in its own process, so the launcher can stop it by pid.
-function fakeHub(on: number, body: Record<string, unknown>): Promise<ChildProcess> {
+function fakeHub(on: number, body: Record<string, unknown>, opts: FakeOptions = {}): Promise<ChildProcess> {
   const script =
+    "const { createHmac } = require('node:crypto');" +
     "require('node:http').createServer((req, res) => {" +
+    "const nonce = new URL(req.url, 'http://x').searchParams.get('nonce') ?? '';" +
+    'const out = { ...JSON.parse(process.env.FAKE_BODY), pid: Number(process.env.FAKE_PID || process.pid) };' +
+    'if (process.env.FAKE_TOKEN) out.proof = createHmac("sha256", process.env.FAKE_TOKEN)' +
+    '.update(process.env.FAKE_PORT + ":" + nonce).digest("base64url");' +
     "res.setHeader('content-type', 'application/json');" +
-    'res.end(JSON.stringify({ ...JSON.parse(process.env.FAKE_BODY), pid: process.pid }));' +
+    'res.end(JSON.stringify(out));' +
     "}).listen(Number(process.env.FAKE_PORT), '127.0.0.1', () => console.log('ready'));";
   const child = spawn(process.execPath, ['-e', script], {
-    env: { ...process.env, FAKE_BODY: JSON.stringify(body), FAKE_PORT: String(on) },
+    env: {
+      ...process.env,
+      FAKE_BODY: JSON.stringify(body),
+      FAKE_PORT: String(on),
+      FAKE_TOKEN: opts.token ?? '',
+      FAKE_PID: opts.pid ? String(opts.pid) : '',
+    },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   children.push(child);
@@ -191,7 +220,12 @@ describe('ensureServer and stopServer', { timeout: 30_000 }, () => {
   });
 
   it('replaces an older hub', async () => {
-    const old = await fakeHub(port, { ok: true, app: 'talk-first-hub', version: '0.0.1', build: 'b1' });
+    const old = await fakeHub(
+      port,
+      { ok: true, app: 'talk-first-hub', version: '0.0.1', build: 'b1' },
+      { token: ensureToken(paths) },
+    );
+    writeState(paths, { pid: old.pid ?? 0, port, version: '0.0.1', build: 'b1' });
     const running = await ensureServer(paths, target);
     expect(running.hub.pid).not.toBe(old.pid);
     expect(running.hub.version).toBe(pluginVersion());
@@ -199,7 +233,11 @@ describe('ensureServer and stopServer', { timeout: 30_000 }, () => {
   });
 
   it('reuses a newer hub and says so', async () => {
-    const newer = await fakeHub(port, { ok: true, app: 'talk-first-hub', version: '999.0.0', build: 'b9' });
+    const newer = await fakeHub(
+      port,
+      { ok: true, app: 'talk-first-hub', version: '999.0.0', build: 'b9' },
+      { token: ensureToken(paths) },
+    );
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const running = await ensureServer(paths, target);
     expect(running.hub.pid).toBe(newer.pid);
@@ -218,6 +256,45 @@ describe('ensureServer and stopServer', { timeout: 30_000 }, () => {
     } finally {
       other.close();
     }
+  });
+
+  it('treats a listener that cannot prove the token as foreign and never sends it the token', async () => {
+    const seen: string[] = [];
+    const impostor = createServer((req, res) => {
+      seen.push(req.url ?? '');
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ ok: true, app: 'talk-first-hub', pid: 1, version: '999.0.0', build: 'b9' }));
+    });
+    await new Promise<void>((done) => impostor.listen(port, '127.0.0.1', done));
+    try {
+      const token = ensureToken(paths);
+      expect(await probePort(port, token)).toEqual({ kind: 'foreign' });
+      await expect(ensureServer(paths, target)).rejects.toThrow('in use by another program');
+      expect(await stopServer(paths, port)).toBe(false);
+      expect(seen.length).toBeGreaterThan(0);
+      for (const url of seen) {
+        expect(url).not.toContain('token');
+        expect(url).not.toContain(token);
+      }
+    } finally {
+      impostor.close();
+    }
+  });
+
+  it('never kills a pid that state.json does not list', async () => {
+    const victim = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    children.push(victim);
+    const victimPid = victim.pid ?? 0;
+    const holder = await fakeHub(
+      port,
+      { ok: true, app: 'talk-first-hub', version: '0.0.1', build: 'b0' },
+      { token: ensureToken(paths), pid: victimPid },
+    );
+    writeState(paths, { pid: holder.pid ?? 0, port, version: '0.0.1', build: 'b0' });
+    await expect(ensureServer(paths, target)).rejects.toThrow('state.json');
+    await expect(ensureServer(paths, target, true)).rejects.toThrow('state.json');
+    expect(await stopServer(paths, port)).toBe(false);
+    expect(alive(victimPid)).toBe(true);
   });
 
   it('stops a pre-change hub recorded in state.json without a version', async () => {
@@ -245,6 +322,33 @@ describe('ensureServer and stopServer', { timeout: 30_000 }, () => {
   });
 });
 
+describe('resolveUrl', () => {
+  it('keeps the page on the hub origin and rejects URLs for another host', async () => {
+    const reply = { url: '' };
+    const server = createServer((_req, res) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(reply));
+    });
+    const at = await freePort();
+    await new Promise<void>((done) => server.listen(at, '127.0.0.1', done));
+    const running = { port: at, token: 'tok', hub: { pid: 1, version: '0.2.0', build: 'b1' } };
+    try {
+      reply.url = '/p/demo/plans?x=1';
+      expect(await resolveUrl(running, { kind: 'project' })).toBe(
+        `http://127.0.0.1:${at}/p/demo/plans?x=1&token=tok`,
+      );
+      reply.url = '@attacker.example/';
+      expect(new URL(await resolveUrl(running, { kind: 'project' })).host).toBe(`127.0.0.1:${at}`);
+      for (const url of ['//attacker.example/x', 'http://attacker.example/', `http://127.0.0.1:${at + 1}/`]) {
+        reply.url = url;
+        await expect(resolveUrl(running, { kind: 'project' }), url).rejects.toThrow('another host');
+      }
+    } finally {
+      server.close();
+    }
+  });
+});
+
 describe('ensureToken', () => {
   it('makes the token once and then reads it back', () => {
     const dir = mkdtempSync(join(tmpdir(), 'hub-token-'));
@@ -254,6 +358,9 @@ describe('ensureToken', () => {
       expect(token.length).toBeGreaterThanOrEqual(32);
       expect(ensureToken(hubPaths())).toBe(token);
       expect(readFileSync(join(dir, 'token'), 'utf8').trim()).toBe(token);
+      chmodSync(join(dir, 'token'), 0o644);
+      expect(ensureToken(hubPaths())).toBe(token);
+      expect(statSync(join(dir, 'token')).mode & 0o777).toBe(0o600);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

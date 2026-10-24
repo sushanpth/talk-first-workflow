@@ -177,6 +177,7 @@ Security model:
 - Requests whose Host header isn't `127.0.0.1:<port>` or `localhost:<port>` are refused, which blocks DNS-rebinding attacks. It sends no CORS headers.
 - It only reads files inside each project's repo, memory folder and Claude Code transcript folders, using real paths so symlinks and `..` can't escape, and it never writes to them. Git and `memory.py` run with argument lists, never through a shell.
 - The token is made once and kept in a `token` file in `~/.cache/talk-first-workflow/hub/`, readable only by you (mode 0600). It survives restarts, so open tabs keep working.
+- Before `cli.ts` sends the token to whatever holds the port, it checks that the listener is your hub: it sends a random challenge, and the hub answers with an HMAC of it keyed by the token. A listener that can't answer counts as another program. The launcher only stops a hub whose pid also matches `state.json`, and only opens URLs on the hub's own origin.
 
 ## Privacy
 

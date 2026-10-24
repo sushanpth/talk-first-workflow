@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.ts';
 import { type Fixture, git, makeFixture, transcriptsIn, write } from './fixtures.test-helper.ts';
 import { ProjectStore, registerRepo } from './projects.ts';
+import { helloProof } from './security.ts';
 import { hubPaths } from './state.ts';
 
 const TOKEN = 'test-token-0123456789';
@@ -96,6 +97,27 @@ describe('token, cookie and Host checks', () => {
       version: '1.2.3',
       build: 'abc',
     });
+  });
+
+  it('answers the hello challenge without the token, with a proof bound to the token and port', async () => {
+    const nonce = 'n'.repeat(32);
+    const res = await get(`/api/hello?nonce=${nonce}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('set-cookie')).toBeNull();
+    expect(await res.json()).toEqual({
+      ok: true,
+      app: 'talk-first-hub',
+      pid: process.pid,
+      version: '1.2.3',
+      build: 'abc',
+      proof: helloProof(TOKEN, PORT, nonce),
+    });
+    expect(helloProof(TOKEN, PORT, nonce)).not.toBe(helloProof(TOKEN, PORT + 1, nonce));
+    expect((await get('/api/hello?nonce=short')).status).toBe(400);
+    expect((await get('/api/hello')).status).toBe(400);
+    expect(
+      (await app.request(`/api/hello?nonce=${nonce}`, { headers: { host: 'evil.example' } })).status,
+    ).toBe(403);
   });
 
   it('sets an HttpOnly SameSite=Strict cookie and strips the token from page URLs', async () => {

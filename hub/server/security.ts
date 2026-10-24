@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 
@@ -13,6 +13,13 @@ export function tokensEqual(given: string | undefined, token: string): boolean {
   const a = Buffer.from(given);
   const b = Buffer.from(token);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export const NONCE = /^[A-Za-z0-9_-]{16,128}$/;
+
+/** Proves the token without sending it; bound to the port so a proof can't be relayed from another hub. */
+export function helloProof(token: string, port: number, nonce: string): string {
+  return createHmac('sha256', token).update(`${port}:${nonce}`).digest('base64url');
 }
 
 /** Only our own origin: a page that rebinds its DNS name to 127.0.0.1 still sends its own Host. */

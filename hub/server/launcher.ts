@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   closeSync,
   type Dirent,
@@ -16,6 +16,7 @@ import {
 import { join, relative, resolve } from 'node:path';
 import { memoryStatus } from './memory.ts';
 import { registerRepo } from './projects.ts';
+import { helloProof, tokensEqual } from './security.ts';
 import {
   buildDir,
   compareVersions,
@@ -156,7 +157,8 @@ function pidAlive(pid: number): boolean {
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-function health(port: number, token: string): Promise<Response> {
+// Only for a pre-change hub, which has no /api/hello; its token is retired with it.
+function legacyHealth(port: number, token: string): Promise<Response> {
   return fetch(`http://127.0.0.1:${port}/api/health?token=${encodeURIComponent(token)}`, {
     signal: AbortSignal.timeout(1500),
   });
@@ -170,17 +172,21 @@ export interface HubInfo {
 
 export type PortStatus = { kind: 'free' } | { kind: 'hub'; hub: HubInfo } | { kind: 'foreign' };
 
-/** What holds the port: nothing, one of our hubs, or another program. */
+/** What holds the port: nothing, one of our hubs, or another program. The token is never sent. */
 export async function probePort(port: number, token: string): Promise<PortStatus> {
+  const nonce = randomBytes(24).toString('base64url');
   let res: Response;
   try {
-    res = await health(port, token);
+    res = await fetch(`http://127.0.0.1:${port}/api/hello?nonce=${nonce}`, {
+      signal: AbortSignal.timeout(1500),
+    });
   } catch (err) {
     const code = ((err as Error).cause as NodeJS.ErrnoException | undefined)?.code;
     return code === 'ECONNREFUSED' ? { kind: 'free' } : { kind: 'foreign' };
   }
   const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (res.ok && body?.app === HUB_APP && typeof body.pid === 'number') {
+  const proven = typeof body?.proof === 'string' && tokensEqual(body.proof, helloProof(token, port, nonce));
+  if (res.ok && proven && body?.app === HUB_APP && typeof body.pid === 'number') {
     return {
       kind: 'hub',
       hub: { pid: body.pid, version: String(body.version ?? ''), build: String(body.build ?? '') },
@@ -218,7 +224,7 @@ async function stopLegacy(paths: HubPaths): Promise<boolean> {
   let stopped = false;
   if (state.token && pidAlive(state.pid)) {
     // The pid must answer on its port, so a reused pid is never killed.
-    const pid = await health(state.port, state.token)
+    const pid = await legacyHealth(state.port, state.token)
       .then(async (res) => (res.ok ? ((await res.json()) as { pid?: unknown }).pid : null))
       .catch(() => null);
     if (pid === state.pid) {
@@ -276,6 +282,13 @@ async function startServer(paths: HubPaths, target: Target, token: string): Prom
   throw new CliError(`the server did not start; see ${paths.log}`);
 }
 
+/** Stops our hub only when state.json names its pid too, so a reported pid alone can't get a process killed. */
+async function stopHub(paths: HubPaths, hub: HubInfo): Promise<boolean> {
+  if (readState(paths)?.pid !== hub.pid) return false;
+  await killHub(hub.pid);
+  return true;
+}
+
 /** Reuses, replaces or starts the hub on the target port; `restart` always replaces ours. */
 export async function ensureServer(paths: HubPaths, target: Target, restart = false): Promise<Running> {
   await stopLegacy(paths);
@@ -288,7 +301,11 @@ export async function ensureServer(paths: HubPaths, target: Target, restart = fa
       console.error(`hub: a newer hub (${status.hub.version}) is already running; using it.`);
       return { port: target.port, token, hub: status.hub };
     }
-    await killHub(status.hub.pid);
+    if (!(await stopHub(paths, status.hub))) {
+      throw new CliError(
+        `port ${target.port} is held by a hub (pid ${status.hub.pid}) that state.json does not list; stop it and retry`,
+      );
+    }
   }
   return startServer(paths, target, token);
 }
@@ -300,9 +317,7 @@ export async function stopServer(paths: HubPaths, port: number): Promise<boolean
   if (!token) return stopped;
   for (const p of new Set([port, readState(paths)?.port ?? port])) {
     const status = await probePort(p, token);
-    if (status.kind !== 'hub') continue;
-    await killHub(status.hub.pid);
-    stopped = true;
+    if (status.kind === 'hub' && (await stopHub(paths, status.hub))) stopped = true;
   }
   return stopped;
 }
@@ -312,14 +327,20 @@ async function register(paths: HubPaths, path: string): Promise<void> {
   if (status?.is_git) registerRepo(paths, status.repo_root);
 }
 
-async function resolveUrl(running: Running, query: Record<string, string>): Promise<string> {
+export async function resolveUrl(running: Running, query: Record<string, string>): Promise<string> {
   const { port, token } = running;
+  const origin = `http://127.0.0.1:${port}`;
   const params = new URLSearchParams({ ...query, token });
-  const res = await fetch(`http://127.0.0.1:${port}/api/resolve?${params}`);
-  const body = (await res.json()) as { url?: string; error?: string };
-  if (!res.ok || !body.url) throw new CliError(body.error ?? `resolve failed (${res.status})`);
-  const sep = body.url.includes('?') ? '&' : '?';
-  return `http://127.0.0.1:${port}${body.url}${sep}token=${encodeURIComponent(token)}`;
+  const res = await fetch(`${origin}/api/resolve?${params}`);
+  const body = (await res.json()) as { url?: unknown; error?: string };
+  if (!res.ok || typeof body.url !== 'string' || !body.url) {
+    throw new CliError(body.error ?? `resolve failed (${res.status})`);
+  }
+  const url = new URL(body.url, origin);
+  // The URL carries the token, so it must never point anywhere but this hub.
+  if (url.origin !== origin) throw new CliError('the hub returned a URL for another host');
+  url.searchParams.set('token', token);
+  return url.href;
 }
 
 function openBrowser(url: string): Promise<boolean> {
