@@ -9,6 +9,8 @@ description: After the user chooses Start in the talk-first workflow - run the i
 
 Run `free -h`, `nproc` and `uptime`. If available memory is under about 2 GB, or load is far above the core count, tell the user and wait or run everything one at a time.
 
+For parallel tracks, follow the global concurrency cap: agents that build, test or run a browser are limited to 5–10 at once. If there are more tracks than that, run them in batches.
+
 ## 2. Implementer
 
 Start `talk-first-workflow:implementer` with the Agent tool and `isolation: "worktree"`. The prompt gives:
@@ -19,6 +21,13 @@ Start `talk-first-workflow:implementer` with the Agent tool and `isolation: "wor
 - the base commit, from `git rev-parse HEAD` in the main checkout; the worktree may start from an older remote commit, and the implementer resets to this one
 
 If it comes back blocked with a question, ask the user, then continue the same implementer with SendMessage so it keeps its worktree and context. When it finishes, its report names the worktree path, branch and base commit; you need them for everything below.
+
+If the brief's Tracks is "none", that is all. Otherwise run the tracks in this order, each implementer started as above:
+
+1. **Contract**, if there is one. Its last commit (`git rev-parse HEAD` in its worktree) becomes the base commit for the tracks. With no contract, the tracks start from the main checkout's base commit.
+2. **Tracks**: start every track implementer in one message, each with `isolation: "worktree"` and that base commit. Each prompt also names the track, the files it owns and its checks.
+3. Wait until every track is done. A blocked track works as above: ask the user, then continue it with SendMessage.
+4. **Integration**: start one more implementer from the same base commit, with the list of track branches. Its worktree, branch and base commit are the ones the reviewers and the final decision use.
 
 ## 3. Reviewers
 
@@ -40,7 +49,7 @@ Every reviewer ends with `VERDICT: PASS` or `VERDICT: FAIL` and findings marked 
 
 ## 4. Fix rounds
 
-If any reviewer reports blockers, send all blockers to the same implementer with SendMessage, then rerun only the reviewers that failed. After two fix rounds with blockers still open, stop and ask the user what to do.
+If any reviewer reports blockers, send all blockers to the same implementer with SendMessage (in a parallel run, the Integration implementer), then rerun only the reviewers that failed. After two fix rounds with blockers still open, stop and ask the user what to do.
 
 ## 5. Report and decide
 
@@ -51,6 +60,8 @@ Give the user a short report: what was built, the Done-when check results, each 
 - **Keep the branch**: remove the worktree, rename the branch the same way, and tell the user the branch name.
 - **Discard**: remove the worktree and branch, then ask whether to retry. A retry means: talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
 - **Look first**: run the Hub command from the session context with `open worktree <worktree path> --base <base commit>` so the diff opens in the browser, and give the worktree path and branch (if the hub can't run, give its one-line error with the path and branch). Wait until the user says they are done looking, then ask this question again.
+
+In a parallel run, Merge locally, Open a PR, Keep the branch and Discard also remove the Contract and track worktrees and delete their branches, at the point where they remove the integration worktree. Their work is already in the integration branch.
 
 AskUserQuestion shows at most four options. When Open a PR is offered, leave **Keep the branch** off the buttons; the user can still choose it in the free-text reply.
 

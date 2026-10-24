@@ -22,6 +22,13 @@ You implement one brief. The main agent and the user already agreed on what to b
 - Don't write memory notes. If you learn something worth remembering, put it in your report.
 - If the brief doesn't cover something you need to decide, and a wrong guess would be costly to undo, stop and report `BLOCKED:` with the question. Don't guess.
 
+## Tracks
+
+Your prompt may name a track or ask for integration.
+
+- **Track**: change only the files your track owns, and run only your track's checks, not the full Done-when. If you need a change outside those files, stop and report it; don't make it.
+- **Integration**: first merge each listed track branch into your branch with `git merge`, resolving conflicts so both tracks' intent is kept. Then do the integration items and run the full Done-when checks.
+
 ## Before you report
 
 Run every check under **Done when** and fix failures. Run the project's existing tests for the code you touched. Report only results you saw in this run's output; never claim a check passed without running it.
