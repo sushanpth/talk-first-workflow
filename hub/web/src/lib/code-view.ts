@@ -17,3 +17,9 @@ export function resolveRelative(from: string, href: string): string | null {
   }
   return parts.join('/');
 }
+
+/** Absolute path on disk, with `:line` when one is selected; code refs recognise this form. */
+export function copyPathText(repo: string, path: string, line: number | undefined): string {
+  const abs = `${repo.replace(/\/+$/, '')}/${path}`;
+  return line ? `${abs}:${line}` : abs;
+}

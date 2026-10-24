@@ -3,14 +3,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
 import { CodeSearchForm } from '@/components/code-search-form';
 import { CodeTree } from '@/components/code-tree';
-import { CopyLinkButton } from '@/components/copy-link-button';
+import { CopyButton, CopyLinkButton } from '@/components/copy-link-button';
 import { Markdown } from '@/components/markdown';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { QuickOpen } from '@/components/quick-open';
 import { Button } from '@/components/ui/button';
+import { useProject } from '@/lib/api';
 import { CODE_SEARCH_PAGE_SIZE, type CodeSearchParams, useCodeFile, useCodeSearch } from '@/lib/code-api';
 import { groupByFile, highlight } from '@/lib/code-search';
-import { effectiveView, isMarkdownPath, resolveRelative } from '@/lib/code-view';
+import { copyPathText, effectiveView, isMarkdownPath, resolveRelative } from '@/lib/code-view';
 import { cn, formatSize } from '@/lib/utils';
 import { CODE_SEARCH_MAX_MATCHES, CODE_SEARCH_QUERY_MAX } from '../../../server/code-types.ts';
 
@@ -91,6 +92,7 @@ export function CodeFilePage() {
   const { line, view } = useSearch({ from: '/p/$project/code/$' });
   const navigate = useNavigate({ from: '/p/$project/code/$' });
   const query = useCodeFile(project, path);
+  const repo = useProject(project).data?.repo;
   const mode = effectiveView(path, view, line);
   let body: ReactNode;
   if (query.isPending) body = <Empty>Loading...</Empty>;
@@ -152,6 +154,11 @@ export function CodeFilePage() {
             />
           </div>
         )}
+        <CopyButton
+          label="Copy path"
+          disabled={typeof repo !== 'string'}
+          getText={() => (typeof repo === 'string' ? copyPathText(repo, path, line) : path)}
+        />
         <CopyLinkButton />
       </div>
       <div className={cn('min-h-0 flex-1 overflow-hidden rounded-md border', simple && 'p-4')}>{body}</div>

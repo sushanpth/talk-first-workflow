@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveView, isMarkdownPath, resolveRelative } from './code-view.ts';
+import { copyPathText, effectiveView, isMarkdownPath, resolveRelative } from './code-view.ts';
 
 describe('isMarkdownPath', () => {
   it('matches .md and .markdown, in any case', () => {
@@ -47,5 +47,22 @@ describe('resolveRelative', () => {
 
   it('returns null above the repo', () => {
     expect(resolveRelative('README.md', '../outside.md')).toBeNull();
+  });
+});
+
+describe('copyPathText', () => {
+  it('joins the repo root and the file path', () => {
+    expect(copyPathText('/home/user/example-project', 'src/app.ts', undefined)).toBe(
+      '/home/user/example-project/src/app.ts',
+    );
+    expect(copyPathText('/home/user/example-project/', 'README.md', undefined)).toBe(
+      '/home/user/example-project/README.md',
+    );
+  });
+
+  it('adds the selected line', () => {
+    expect(copyPathText('/home/user/example-project', 'src/app.ts', 42)).toBe(
+      '/home/user/example-project/src/app.ts:42',
+    );
   });
 });
