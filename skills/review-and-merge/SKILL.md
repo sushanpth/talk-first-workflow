@@ -72,8 +72,19 @@ Options:
 - **Keep the branch**: remove the worktree (and in a parallel run the contract and track ones, as above; only the integration branch is kept), and tell the user the branch name.
 - **Discard**: remove the worktree (and in a parallel run the contract and track ones, as above) and the branch, name every branch you deleted, then ask whether to retry. A retry means: talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
 - **Look first**: run the Hub command from the session context with `open worktree <worktree path> --base <base commit>` so the diff opens in the browser, and give the worktree path and branch (if the hub can't run, give its one-line error with the path and branch). Wait until the user says they are done looking, then ask this question again.
+- **Fix should-fix first**: send the remaining should-fix items to the same implementer with SendMessage (in a parallel run, the Integration implementer), rerun the reviewers that raised them, report again, then ask this question again. Offer this option only when should-fix items remain.
 
-AskUserQuestion shows at most four options. When Open a PR is offered, leave **Keep the branch** off the buttons; the user can still choose it in the free-text reply.
+AskUserQuestion shows at most four options, so choose the buttons on each run:
+
+1. Read the project's `shipping-preference` memory note, if there is one, and the project's CLAUDE.md, to learn how this project ships.
+2. Put the preferred finish first, with "(Recommended)" in its label.
+3. Next, Fix should-fix first, when it is offered and the project fixes should-fix items before shipping.
+4. Next, Look first.
+5. Fill any place left with the next likeliest option.
+
+Name every offered option that has no button in the question text, so the user can type it as a reply.
+
+With no note and nothing in CLAUDE.md about shipping, the buttons are Merge locally, Open a PR (when offered), Look first and Keep the branch, with none marked Recommended. After the user chooses a finish, save the `shipping-preference` note through `talk-first-workflow:save-memory` if there is none, or update it if the choice differs from it: how the project ships and which option to recommend.
 
 These git commands are the user's explicit choice, so they are allowed despite talk mode. Push only when the user picks Open a PR.
 

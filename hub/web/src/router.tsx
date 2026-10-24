@@ -1,4 +1,5 @@
 import { createRootRoute, createRoute, createRouter, Link, Outlet, redirect } from '@tanstack/react-router';
+import { parseListSearch, parseMemorySearch } from '@/lib/list-search';
 import { DocPage, DocsPage } from '@/routes/docs';
 import { MemoryPage, NotePage } from '@/routes/memory';
 import { PlanPage, PlansPage } from '@/routes/plans';
@@ -20,7 +21,12 @@ function RootLayout() {
 }
 
 const rootRoute = createRootRoute({ component: RootLayout });
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: ProjectsPage });
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: ProjectsPage,
+  validateSearch: (search: Record<string, unknown>) => parseListSearch('projects', search),
+});
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/p/$project',
@@ -33,7 +39,12 @@ const projectIndexRoute = createRoute({
     throw redirect({ to: '/p/$project/plans', params });
   },
 });
-const plansRoute = createRoute({ getParentRoute: () => projectRoute, path: '/plans', component: PlansPage });
+const plansRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/plans',
+  component: PlansPage,
+  validateSearch: (search: Record<string, unknown>) => parseListSearch('plans', search),
+});
 const planRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/plans/$brief',
@@ -43,18 +54,27 @@ const memoryRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/memory',
   component: MemoryPage,
+  validateSearch: parseMemorySearch,
 });
 const noteRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/memory/$note',
   component: NotePage,
 });
-const docsRoute = createRoute({ getParentRoute: () => projectRoute, path: '/docs', component: DocsPage });
-const docRoute = createRoute({ getParentRoute: () => projectRoute, path: '/docs/$', component: DocPage });
+// Nested on purpose: as flat siblings, the `/docs/$` splat also matches `/docs` and wins.
+const docsRoute = createRoute({ getParentRoute: () => projectRoute, path: '/docs' });
+const docsIndexRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: '/',
+  component: DocsPage,
+  validateSearch: (search: Record<string, unknown>) => parseListSearch('docs', search),
+});
+const docRoute = createRoute({ getParentRoute: () => docsRoute, path: '$', component: DocPage });
 const worktreesRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/worktrees',
   component: WorktreesPage,
+  validateSearch: (search: Record<string, unknown>) => parseListSearch('worktrees', search),
 });
 const worktreeRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -74,8 +94,7 @@ const routeTree = rootRoute.addChildren([
     planRoute,
     memoryRoute,
     noteRoute,
-    docsRoute,
-    docRoute,
+    docsRoute.addChildren([docsIndexRoute, docRoute]),
     worktreesRoute,
     worktreeRoute,
   ]),

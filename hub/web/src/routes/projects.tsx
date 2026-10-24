@@ -1,9 +1,12 @@
-import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { Empty, QueryState } from '@/components/query-state';
+import { Link, Outlet, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { ListView } from '@/components/list-view';
+import { QueryState } from '@/components/query-state';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useProject, useProjects } from '@/lib/api';
+import { patchSearch } from '@/lib/list-search';
 import { cn } from '@/lib/utils';
+import { SORT_KEYS } from '../../../server/types.ts';
 
 const SECTIONS = [
   { to: '/p/$project/plans', label: 'Plans' },
@@ -13,51 +16,56 @@ const SECTIONS = [
 ] as const;
 
 export function ProjectsPage() {
-  const query = useProjects();
+  const search = useSearch({ from: '/' });
+  const navigate = useNavigate({ from: '/' });
+  const query = useProjects(search);
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Projects</h1>
-      <QueryState query={query}>
-        {(projects) =>
-          projects.length === 0 ? (
-            <Empty>No projects yet. Set up memory in a repo, or open the hub from one.</Empty>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {projects.map((p) => (
-                <Card key={p.id} data-project={p.id}>
-                  <CardHeader>
-                    <CardTitle>
-                      <Link to="/p/$project/plans" params={{ project: p.id }} className="hover:underline">
-                        {p.name}
+      <ListView
+        query={query}
+        search={search}
+        sortKeys={SORT_KEYS.projects}
+        noun="projects"
+        onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+        empty="No projects yet. Set up memory in a repo, or open the hub from one."
+      >
+        {(page) => (
+          <div className="grid gap-4 md:grid-cols-2">
+            {page.items.map((p) => (
+              <Card key={p.id} data-project={p.id}>
+                <CardHeader>
+                  <CardTitle>
+                    <Link to="/p/$project/plans" params={{ project: p.id }} className="hover:underline">
+                      {p.name}
+                    </Link>
+                  </CardTitle>
+                  <CardDescription className="break-all font-mono text-xs">
+                    {p.repo ?? 'repo not found on disk'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    {p.briefCount} plans · {p.noteCount} notes
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SECTIONS.map((s) => (
+                      <Link
+                        key={s.to}
+                        to={s.to}
+                        params={{ project: p.id }}
+                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                      >
+                        {s.label}
                       </Link>
-                    </CardTitle>
-                    <CardDescription className="break-all font-mono text-xs">
-                      {p.repo ?? 'repo not found on disk'}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      {p.briefCount} plans · {p.noteCount} notes
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {SECTIONS.map((s) => (
-                        <Link
-                          key={s.to}
-                          to={s.to}
-                          params={{ project: p.id }}
-                          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                        >
-                          {s.label}
-                        </Link>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )
-        }
-      </QueryState>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </ListView>
     </div>
   );
 }

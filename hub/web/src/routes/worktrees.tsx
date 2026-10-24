@@ -1,10 +1,13 @@
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { lazy, type ReactNode, Suspense, useState } from 'react';
+import { ListView } from '@/components/list-view';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type AgentWorktree, type ChangedFile, useFileDiff, useWorktreeDiff, useWorktrees } from '@/lib/api';
+import { patchSearch } from '@/lib/list-search';
 import { cn } from '@/lib/utils';
+import { SORT_KEYS } from '../../../server/types.ts';
 
 const DiffView = lazy(() => import('@/components/diff-view'));
 
@@ -58,35 +61,40 @@ function WorktreeHeading({
 
 export function WorktreesPage() {
   const { project } = useParams({ from: '/p/$project/worktrees' });
-  const query = useWorktrees(project);
+  const search = useSearch({ from: '/p/$project/worktrees' });
+  const navigate = useNavigate({ from: '/p/$project/worktrees' });
+  const query = useWorktrees(project, search);
   return (
-    <QueryState query={query}>
-      {(trees) =>
-        trees.length === 0 ? (
-          <Empty>No linked worktrees.</Empty>
-        ) : (
-          <ul className="divide-y rounded-md border">
-            {trees.map((t) => (
-              <li key={t.path} className="relative px-4 py-3 hover:bg-accent">
-                <WorktreeHeading
-                  project={project}
-                  tree={t}
-                  title={
-                    <Link
-                      to="/p/$project/worktrees/$name"
-                      params={{ project, name: t.name }}
-                      className="font-medium after:absolute after:inset-0"
-                    >
-                      {t.task ?? t.name}
-                    </Link>
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </QueryState>
+    <ListView
+      query={query}
+      search={search}
+      sortKeys={SORT_KEYS.worktrees}
+      noun="worktrees"
+      onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+      empty="No linked worktrees."
+    >
+      {(page) => (
+        <ul className="divide-y rounded-md border">
+          {page.items.map((t) => (
+            <li key={t.path} className="relative px-4 py-3 hover:bg-accent">
+              <WorktreeHeading
+                project={project}
+                tree={t}
+                title={
+                  <Link
+                    to="/p/$project/worktrees/$name"
+                    params={{ project, name: t.name }}
+                    className="font-medium after:absolute after:inset-0"
+                  >
+                    {t.task ?? t.name}
+                  </Link>
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </ListView>
   );
 }
 
