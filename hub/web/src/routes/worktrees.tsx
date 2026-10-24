@@ -148,7 +148,8 @@ export function WorktreePage() {
   return (
     <QueryState query={diff}>
       {(d) => (
-        <div className="space-y-3">
+        // Fills the window below the one-row header, like the code page.
+        <div className="flex h-[calc(100vh-5rem-1px)] flex-col gap-3">
           <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
             <WorktreeHeading
               project={project}
@@ -165,7 +166,7 @@ export function WorktreePage() {
           {d.files.length === 0 ? (
             <Empty>No changes against the base.</Empty>
           ) : (
-            <div className="grid h-[calc(100vh-15rem)] min-h-96 grid-cols-[18rem_1fr] gap-3">
+            <div className="grid min-h-96 flex-1 grid-cols-[18rem_1fr] gap-3">
               <aside className="overflow-auto rounded-md border p-2" data-section="changed-files">
                 <FileList
                   files={d.files}
