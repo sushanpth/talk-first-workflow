@@ -51,7 +51,8 @@ export function CodeLayout() {
   }, []);
 
   return (
-    <div className="space-y-3">
+    // Fills the window below the one-row header (h-12 plus its border) and main's py-4.
+    <div className="flex h-[calc(100vh-5rem-1px)] flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => setQuickOpen(true)}>
           Go to file
@@ -59,7 +60,7 @@ export function CodeLayout() {
         </Button>
         <CodeSearchForm project={project} />
       </div>
-      <div className="grid h-[calc(100vh-14rem)] min-h-96 grid-cols-[16rem_1fr] gap-3">
+      <div className="grid min-h-96 flex-1 grid-cols-[16rem_1fr] gap-3">
         <aside className="overflow-auto rounded-md border p-1" data-section="code-tree">
           <CodeTree key={project} project={project} current={current} />
         </aside>

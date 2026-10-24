@@ -5,16 +5,21 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useProject, useProjects } from '@/lib/api';
 import { useListSearch } from '@/lib/list-search';
-import { cn } from '@/lib/utils';
 import { SORT_KEYS } from '../../../server/types.ts';
 
-const SECTIONS = [
+export const SECTIONS = [
   { to: '/p/$project/plans', label: 'Plans' },
   { to: '/p/$project/memory', label: 'Memory' },
   { to: '/p/$project/docs', label: 'Docs' },
   { to: '/p/$project/code', label: 'Code' },
   { to: '/p/$project/worktrees', label: 'Worktrees' },
 ] as const;
+
+export type Section = (typeof SECTIONS)[number];
+
+/** The section a route id belongs to, or Plans when it is in none. */
+export const sectionOf = (routeId: string): Section =>
+  SECTIONS.find((s) => routeId === s.to || routeId.startsWith(`${s.to}/`)) ?? SECTIONS[0];
 
 export function ProjectsPage() {
   const { search, onSearch } = useListSearch('/');
@@ -73,25 +78,5 @@ export function ProjectsPage() {
 export function ProjectLayout() {
   const { project } = useParams({ from: '/p/$project' });
   const query = useProject(project);
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold">{query.data?.name ?? project}</h1>
-        <nav className="flex gap-1 border-b">
-          {SECTIONS.map((s) => (
-            <Link
-              key={s.to}
-              to={s.to}
-              params={{ project }}
-              className="-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-              activeProps={{ className: cn('border-foreground! text-foreground!') }}
-            >
-              {s.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-      {query.isError ? <QueryState query={query}>{() => null}</QueryState> : <Outlet />}
-    </div>
-  );
+  return query.isError ? <QueryState query={query}>{() => null}</QueryState> : <Outlet />;
 }
