@@ -10,12 +10,16 @@ import { resolveRoutes } from './routes/resolve.ts';
 import { staticRoutes } from './routes/static.ts';
 import { worktreeRoutes } from './routes/worktrees.ts';
 import { guard, requireAuth } from './security.ts';
+import { HUB_APP } from './state.ts';
 
 export interface AppOptions {
   token: string;
   port: () => number;
   projects: ProjectStore;
   dist: string;
+  /** Reported by /api/health so a launcher can tell which hub holds the port. */
+  version: string;
+  build: string;
   onActivity?: () => void;
 }
 
@@ -34,7 +38,9 @@ export function createApp(options: AppOptions): Hono {
   app.onError(onError);
   api.onError(onError);
 
-  api.get('/health', (c) => c.json({ ok: true, pid: process.pid }));
+  api.get('/health', (c) =>
+    c.json({ ok: true, app: HUB_APP, pid: process.pid, version: options.version, build: options.build }),
+  );
 
   const ctx = routeContext(options.projects);
   for (const routes of [

@@ -1,34 +1,42 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { ProjectStore } from './projects.ts';
-import { clearState, hubPaths, writeState } from './state.ts';
+import { buildDir, clearState, hubPaths, hubPort, pluginVersion, readToken, writeState } from './state.ts';
 
-// Started detached by the launcher, which passes the token and build hash in the environment.
-const token = process.env.TALK_FIRST_HUB_TOKEN;
+// Started detached by the launcher, which passes the build hash and its folder in the environment.
+const paths = hubPaths();
+const token = readToken(paths);
 if (!token) {
-  console.error('hub server: TALK_FIRST_HUB_TOKEN is not set; start it with `node hub/cli.ts open`.');
+  console.error(`hub server: no token in ${paths.token}; start it with \`node hub/cli.ts open\`.`);
   process.exit(1);
 }
+const port = hubPort();
 const build = process.env.TALK_FIRST_HUB_BUILD ?? '';
+const version = pluginVersion();
 const idleMs = Number(process.env.TALK_FIRST_HUB_IDLE_MS ?? 30 * 60 * 1000);
-const paths = hubPaths();
 
-let port = 0;
 let lastActivity = Date.now();
 const app = createApp({
   token,
   port: () => port,
   projects: new ProjectStore(paths),
-  dist: process.env.TALK_FIRST_HUB_DIST ?? paths.dist,
+  dist: process.env.TALK_FIRST_HUB_DIST ?? buildDir(paths, build),
+  version,
+  build,
   onActivity: () => {
     lastActivity = Date.now();
   },
 });
 
-const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 }, (info) => {
-  port = info.port;
-  writeState(paths, { pid: process.pid, port, token, build });
-  console.log(`hub listening on http://127.0.0.1:${port}`);
+const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, () => {
+  writeState(paths, { pid: process.pid, port, version, build });
+  console.log(`hub ${version} (${build}) listening on http://127.0.0.1:${port}`);
+});
+server.on('error', (err: NodeJS.ErrnoException) => {
+  console.error(
+    err.code === 'EADDRINUSE' ? `hub server: port ${port} is already in use.` : `hub server: ${err.message}`,
+  );
+  process.exit(1);
 });
 
 function shutdown(reason: string): void {
