@@ -19,10 +19,13 @@ Start `talk-first-workflow:implementer` with the Agent tool and `isolation: "wor
 - the memory paths the brief lists
 - the current branch name, which is the base for the work
 - the base commit, from `git rev-parse HEAD` in the main checkout; the worktree may start from an older remote commit, and the implementer resets to this one
+- a branch name, `tf/<slug>`, where the slug is a short kebab-case name from the plan title; the implementer renames its branch to it
+
+The Agent `description` reads `<role>: <plan title>`, such as `implementer: Task-named branches`; in a parallel run the role is `contract`, the track's name or `integration`.
 
 If it comes back blocked with a question, ask the user, then continue the same implementer with SendMessage so it keeps its worktree and context. When it finishes, its report names the worktree path, branch and base commit; you need them for everything below.
 
-If the brief's Tracks is "none", that is all. Otherwise start each implementer as above, and have its prompt also name its role (contract, track or integration), the files it owns and its checks. Run them in this order:
+If the brief's Tracks is "none", that is all. Otherwise start each implementer as above, and have its prompt also name its role (contract, track or integration), the files it owns and its checks. The branch names are `tf/<slug>-contract` for the contract, `tf/<slug>-<track>` for each track and `tf/<slug>` for Integration. Run them in this order:
 
 1. **Contract**, if there is one, from the main checkout's base commit. Its last commit (`git rev-parse HEAD` in its worktree) is where the tracks start.
 2. **Tracks**: start every track implementer in one message, each with `isolation: "worktree"` and, as its base commit, the contract's last commit (or the main checkout's base commit when there is no contract). A track's prompt doesn't include other tracks' reports.
@@ -65,8 +68,8 @@ In a parallel run, "remove the worktree" in the options below also removes the C
 Options:
 
 - **Merge locally**: from the main checkout, confirm the working tree is clean, then `git merge --no-ff <branch>` into the current branch. If the merge conflicts, run `git merge --abort`, tell the user, and offer to have the implementer rebase its branch onto the current branch. After a clean merge, remove the worktree (and in a parallel run the contract and track ones, as above) and delete the branch.
-- **Open a PR**: remove the worktree (and in a parallel run the contract and track ones, as above; only the integration branch is kept), rename the branch to a short kebab-case name from the plan title (`git branch -m <branch> <name>`), `git push -u origin <name>`, then `gh pr create --base <base branch> --body-file <file>`. Write the title and body in plain English: the goal, what changed, the Done-when results and the reviewer verdicts. One paragraph per line, no hard wrapping. Leave local paths (home, /tmp, memory) and unfixed security findings out of the body. Give the user the PR link. Offer this option only when `git remote` lists a remote and `gh auth status` succeeds; otherwise leave it out.
-- **Keep the branch**: remove the worktree (and in a parallel run the contract and track ones, as above; only the integration branch is kept), rename the branch the same way, and tell the user the branch name.
+- **Open a PR**: remove the worktree (and in a parallel run the contract and track ones, as above; only the integration branch is kept), `git push -u origin <branch>`, then `gh pr create --base <base branch> --body-file <file>`. Write the title and body in plain English: the goal, what changed, the Done-when results and the reviewer verdicts. One paragraph per line, no hard wrapping. Leave local paths (home, /tmp, memory) and unfixed security findings out of the body. Give the user the PR link. Offer this option only when `git remote` lists a remote and `gh auth status` succeeds; otherwise leave it out.
+- **Keep the branch**: remove the worktree (and in a parallel run the contract and track ones, as above; only the integration branch is kept), and tell the user the branch name.
 - **Discard**: remove the worktree (and in a parallel run the contract and track ones, as above) and the branch, name every branch you deleted, then ask whether to retry. A retry means: talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
 - **Look first**: run the Hub command from the session context with `open worktree <worktree path> --base <base commit>` so the diff opens in the browser, and give the worktree path and branch (if the hub can't run, give its one-line error with the path and branch). Wait until the user says they are done looking, then ask this question again.
 
