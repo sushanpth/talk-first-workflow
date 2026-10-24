@@ -13,6 +13,13 @@ import {
 import { paginate } from '../paginate.ts';
 import { fail, listQuery, type RouteContext } from './context.ts';
 
+const REFUSALS = {
+  missing: [404, 'file is missing on disk'],
+  outside: [403, 'path is outside the repo'],
+  'not a regular file': [403, 'not a regular file'],
+  'untracked target': [403, 'symlink target is not a tracked file'],
+} as const;
+
 const byPath = { text: (x: { path: string }) => [x.path], keys: { path: (x: { path: string }) => x.path } };
 
 export function codeRoutes(ctx: RouteContext): Hono {
@@ -42,12 +49,12 @@ export function codeRoutes(ctx: RouteContext): Hono {
     const query = listQuery(c, codeFileQuerySchema);
     const root = await repo(c.req.param('id'));
     const path = normalizePath(query.path);
-    if (!(await trackedFiles(root)).set.has(path)) fail(404, 'not a tracked file');
-    const result = await readCodeFile(root, path);
+    const { set } = await trackedFiles(root);
+    if (!set.has(path)) fail(404, 'not a tracked file');
+    const result = await readCodeFile(root, path, set);
     if ('refused' in result) {
-      return result.refused === 'missing'
-        ? fail(404, 'file is missing on disk')
-        : fail(403, result.refused === 'outside' ? 'path is outside the repo' : 'not a regular file');
+      const [status, message] = REFUSALS[result.refused];
+      return fail(status, message);
     }
     return c.json(result.file);
   });

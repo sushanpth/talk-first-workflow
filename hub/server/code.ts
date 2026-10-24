@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
-import { constants } from 'node:fs';
-import { type FileHandle, lstat, open, readFile, realpath, stat } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { type FileHandle, lstat, readFile, realpath, stat } from 'node:fs/promises';
+import { join, relative, resolve, sep } from 'node:path';
 import {
   CODE_FILE_MAX_BYTES,
   CODE_MATCH_LINE_MAX,
@@ -14,7 +13,7 @@ import {
   type CodeTreeEntry,
   parseCodeRef,
 } from './code-types.ts';
-import { realInside } from './paths.ts';
+import { type FileRefusal, withRegularFile } from './paths.ts';
 import { run } from './run.ts';
 
 const BINARY_SNIFF_BYTES = 8192;
@@ -84,7 +83,7 @@ export function treeLevel(files: string[], dir: string): CodeTree | null {
   return { path: dir, entries: [...entries(dirs, 'dir'), ...entries(leaves, 'file')] };
 }
 
-export type ReadResult = { file: CodeFile } | { refused: 'missing' | 'outside' | 'not a regular file' };
+export type ReadResult = { file: CodeFile } | { refused: 'missing' | 'untracked target' | FileRefusal };
 
 /** Fills `buffer` from the start of the file, stopping early at end of file. */
 async function readInto(handle: FileHandle, buffer: Buffer): Promise<Buffer> {
@@ -97,26 +96,26 @@ async function readInto(handle: FileHandle, buffer: Buffer): Promise<Buffer> {
   return buffer.subarray(0, filled);
 }
 
-/** Reads a tracked file whose real path stays in `repo`; the caller checks it is tracked. */
-export async function readCodeFile(repo: string, path: string): Promise<ReadResult> {
+/**
+ * Reads a file whose real path is itself in `tracked`, so a tracked symlink can't serve an
+ * untracked file such as `.env`. The caller checks that `path` is tracked.
+ */
+export async function readCodeFile(repo: string, path: string, tracked: Set<string>): Promise<ReadResult> {
   if (!(await lstat(join(repo, path)).catch(() => null))) return { refused: 'missing' };
-  const real = await realInside([repo], join(repo, path));
-  if (!real) return { refused: 'outside' };
-  // Stat before opening: opening a FIFO for reading blocks until a writer shows up.
-  if (!(await stat(real).catch(() => null))?.isFile()) return { refused: 'not a regular file' };
-  const handle = await open(real, constants.O_RDONLY | constants.O_NONBLOCK);
-  try {
-    // Checked again on the open handle in case the file was swapped after the stat.
-    const info = await handle.stat();
-    if (!info.isFile()) return { refused: 'not a regular file' };
-    const tooLarge = info.size > CODE_FILE_MAX_BYTES;
-    const bytes = await readInto(handle, Buffer.alloc(tooLarge ? BINARY_SNIFF_BYTES : info.size));
-    const binary = bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0);
-    const content = binary || tooLarge ? null : bytes.toString('utf8');
-    return { file: { path, size: info.size, binary, tooLarge, content } };
-  } finally {
-    await handle.close();
-  }
+  const realRepo = await realpath(repo);
+  const result = await withRegularFile(
+    [repo],
+    join(repo, path),
+    async (handle, info, real): Promise<ReadResult> => {
+      if (!tracked.has(relative(realRepo, real).split(sep).join('/'))) return { refused: 'untracked target' };
+      const tooLarge = info.size > CODE_FILE_MAX_BYTES;
+      const bytes = await readInto(handle, Buffer.alloc(tooLarge ? BINARY_SNIFF_BYTES : info.size));
+      const binary = bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0);
+      const content = binary || tooLarge ? null : bytes.toString('utf8');
+      return { file: { path, size: info.size, binary, tooLarge, content } };
+    },
+  );
+  return 'value' in result ? result.value : result;
 }
 
 function trimLine(text: string): string {
@@ -141,11 +140,13 @@ class MatchParser {
   private field: 'path' | 'line' | 'text' = 'path';
   private path = '';
   private line = 0;
+  private readonly out: CodeMatch[];
+  private readonly max: number;
 
-  constructor(
-    private readonly out: CodeMatch[],
-    private readonly max: number,
-  ) {}
+  constructor(out: CodeMatch[], max: number) {
+    this.out = out;
+    this.max = max;
+  }
 
   push(chunk: Buffer): void {
     let start = 0;
@@ -183,7 +184,8 @@ class MatchParser {
       this.field = 'text';
     } else {
       const text = trimLine(this.take());
-      if (Number.isInteger(this.line) && this.line > 0) this.out.push({ path: this.path, line: this.line, text });
+      if (Number.isInteger(this.line) && this.line > 0)
+        this.out.push({ path: this.path, line: this.line, text });
       this.field = 'path';
     }
   }

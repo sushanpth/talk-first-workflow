@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.ts';
@@ -166,6 +166,20 @@ describe('file', () => {
     const res = await api('file?path=leak.txt');
     expect(res.status).toBe(403);
     expect(JSON.stringify(res.body)).not.toContain('private');
+  });
+
+  it('serves a tracked symlink only when its target is tracked too', async () => {
+    commit({ '.gitignore': '.env\n' });
+    write(join(fx.repo, '.env'), 'SECRET=1');
+    symlinkSync('.env', join(fx.repo, 'cfg'));
+    symlinkSync('README.md', join(fx.repo, 'readme-link'));
+    git(fx.repo, 'add', 'cfg', 'readme-link');
+    const refused = await api('file?path=cfg');
+    expect(refused.status).toBe(403);
+    expect(JSON.stringify(refused.body)).not.toContain('SECRET');
+    const served = await api('file?path=readme-link');
+    expect(served.status).toBe(200);
+    expect(served.body.content).toBe(readFileSync(join(fx.repo, 'README.md'), 'utf8'));
   });
 
   it('refuses a FIFO without hanging', async () => {

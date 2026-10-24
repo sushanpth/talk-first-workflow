@@ -1,7 +1,5 @@
-import { constants } from 'node:fs';
-import { open, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { realInside } from './paths.ts';
+import { withRegularFile } from './paths.ts';
 import { run, runBuffer } from './run.ts';
 import type { ChangedFile, Worktree } from './types.ts';
 
@@ -136,20 +134,10 @@ export async function fileAtCommit(cwd: string, commit: string, path: string): P
 
 /** Reads a file from disk only when its real path stays inside `root`. */
 export async function fileOnDisk(root: string, path: string): Promise<Text | null> {
-  const real = await realInside([root], join(root, path));
-  if (!real) return null;
-  // Stat before opening: opening a FIFO for reading blocks until a writer shows up.
-  if (!(await stat(real).catch(() => null))?.isFile()) return null;
-  const handle = await open(real, constants.O_RDONLY | constants.O_NONBLOCK);
-  try {
-    // Checked again on the handle in case the file was swapped after the stat.
-    const info = await handle.stat();
-    if (!info.isFile()) return null;
-    if (info.size > MAX_FILE) return { text: '', binary: true };
-    return toText(await handle.readFile());
-  } finally {
-    await handle.close();
-  }
+  const result = await withRegularFile([root], join(root, path), async (handle, info) =>
+    info.size > MAX_FILE ? { text: '', binary: true } : toText(await handle.readFile()),
+  );
+  return 'value' in result ? result.value : null;
 }
 
 export async function trackedMarkdown(repo: string): Promise<string[]> {
