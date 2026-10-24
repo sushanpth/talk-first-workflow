@@ -16,7 +16,8 @@ function showLine(editor: CodeEditor, marks: monaco.editor.IEditorDecorationsCol
       range: new monaco.Range(target, 1, target, 1),
       options: {
         isWholeLine: true,
-        className: 'bg-amber-200/60 dark:bg-amber-300/20',
+        // Monaco strips class names to [a-z0-9_-], so no Tailwind modifiers; this one follows the theme.
+        className: 'rangeHighlight',
         linesDecorationsClassName: 'bg-amber-500',
       },
     },

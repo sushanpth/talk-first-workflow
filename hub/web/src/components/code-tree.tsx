@@ -45,7 +45,6 @@ function TreeLevel({ project, path, depth, expanded, onToggle, current }: LevelP
                 to="/p/$project/code/$"
                 params={{ project, _splat: entry.path }}
                 style={indent(depth + 1)}
-                aria-current={isCurrent ? 'page' : undefined}
                 className={cn(
                   'block truncate rounded py-0.5 pr-2 font-mono text-xs hover:bg-accent',
                   isCurrent && 'bg-accent font-semibold',

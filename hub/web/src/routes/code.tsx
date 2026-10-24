@@ -163,7 +163,11 @@ function CopyLinkButton() {
   );
 }
 
-const formatMb = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function CodeFilePage() {
   const { project, _splat: path = '' } = useParams({ from: '/p/$project/code/$' });
@@ -171,11 +175,11 @@ export function CodeFilePage() {
   const navigate = useNavigate({ from: '/p/$project/code/$' });
   const query = useCodeFile(project, path);
   let body: ReactNode;
-  if (query.isPending) body = <p className="p-4 text-sm text-muted-foreground">Loading...</p>;
+  if (query.isPending) body = <Empty>Loading...</Empty>;
   else if (query.isError) body = <ErrorBox error={query.error} />;
   else if (query.data.binary) body = <Empty>Binary file; not shown.</Empty>;
   else if (query.data.tooLarge || query.data.content === null) {
-    body = <Empty>Too large to show ({formatMb(query.data.size)}).</Empty>;
+    body = <Empty>Too large to show ({formatSize(query.data.size)}).</Empty>;
   } else {
     body = (
       <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading editor...</p>}>
@@ -195,7 +199,7 @@ export function CodeFilePage() {
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 break-all font-mono text-xs text-muted-foreground">
           {path}
-          {query.data && ` · ${formatMb(query.data.size)}`}
+          {query.data && ` · ${formatSize(query.data.size)}`}
           {line && ` · line ${line}`}
         </p>
         <CopyLinkButton />

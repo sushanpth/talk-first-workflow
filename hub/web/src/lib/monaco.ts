@@ -9,6 +9,20 @@ import { useSyncExternalStore } from 'react';
 loader.config({ monaco });
 // Vite inlines Monaco's own editor-worker URL as a data: URL that can't load its imports.
 window.MonacoEnvironment = { getWorker: () => new EditorWorker() };
+// Only the editor worker is bundled, so turn off the language services that need their own; highlighting stays.
+for (const defaults of [
+  monaco.typescript.typescriptDefaults,
+  monaco.typescript.javascriptDefaults,
+  monaco.css.cssDefaults,
+  monaco.css.scssDefaults,
+  monaco.css.lessDefaults,
+  monaco.html.htmlDefaults,
+  monaco.html.handlebarDefaults,
+  monaco.html.razorDefaults,
+]) {
+  defaults.setModeConfiguration({});
+}
+monaco.json.jsonDefaults.setModeConfiguration({ tokens: true });
 
 export { monaco };
 
