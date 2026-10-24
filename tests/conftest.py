@@ -16,15 +16,18 @@ GIT_ENV = {
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    """Isolates the memory root and Claude config dir under tmp_path."""
+    """Isolates HOME, the memory root and Claude config dir under tmp_path."""
     memory_root = tmp_path / "memory"
     claude_home = tmp_path / "claude"
     claude_home.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("TALK_FIRST_MEMORY_ROOT", str(memory_root))
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_home))
     for key, value in GIT_ENV.items():
         monkeypatch.setenv(key, value)
-    return {"memory_root": memory_root, "claude_home": claude_home, "tmp": tmp_path}
+    return {"memory_root": memory_root, "claude_home": claude_home, "home": home, "tmp": tmp_path}
 
 
 @pytest.fixture
