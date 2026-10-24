@@ -63,6 +63,15 @@ export function patchSearch<S extends ListSearch & { type?: string }>(prev: S, p
   return next;
 }
 
+/**
+ * Offset of the previous page. `size` is the server's page size, known once a page with a next one
+ * was shown; until then the items on screen stand in for it.
+ */
+export function prevOffset(offset: number, size: number | undefined, shown: number): number {
+  const step = size ?? shown;
+  return step > 0 ? Math.max(0, offset - step) : 0;
+}
+
 /** Query string for a list route; the server fills in what is left out. */
 export function listSearchParams(search: ListSearch & { type?: string }): string {
   const params = new URLSearchParams();
