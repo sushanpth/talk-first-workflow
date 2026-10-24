@@ -12,6 +12,7 @@ const SECTIONS = [
   { to: '/p/$project/plans', label: 'Plans' },
   { to: '/p/$project/memory', label: 'Memory' },
   { to: '/p/$project/docs', label: 'Docs' },
+  { to: '/p/$project/code', label: 'Code' },
   { to: '/p/$project/worktrees', label: 'Worktrees' },
 ] as const;
 

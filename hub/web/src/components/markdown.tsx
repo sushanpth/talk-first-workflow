@@ -2,14 +2,9 @@ import { Link as RouterLink } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Link } from '@/lib/api';
-
-interface MdNode {
-  type: string;
-  value?: string;
-  url?: string;
-  children?: MdNode[];
-}
+import { type Link, useProject } from '@/lib/api';
+import { useCodeRef } from '@/lib/code-api';
+import { codeRefOf, type MdNode, remarkCodeRefs } from '@/lib/code-refs';
 
 const WIKI_RE = /\[\[([^\]]+)\]\]/g;
 const WIKI_PREFIX = 'wikilink:';
@@ -44,7 +39,32 @@ function remarkWikiLinks() {
   return (tree: MdNode) => visit(tree);
 }
 
-const urlTransform = (url: string) => (url.startsWith(WIKI_PREFIX) ? url : defaultUrlTransform(url));
+const urlTransform = (url: string) =>
+  url.startsWith(WIKI_PREFIX) || codeRefOf(url) !== null ? url : defaultUrlTransform(url);
+
+/** Links a code-ref candidate into the code viewer once the hub confirms it's a tracked file. */
+function CodeRefLink({
+  project,
+  codeRef,
+  children,
+}: {
+  project: string;
+  codeRef: string;
+  children: ReactNode;
+}) {
+  const resolved = useCodeRef(project, codeRef).data;
+  if (!resolved) return <>{children}</>;
+  return (
+    <RouterLink
+      to="/p/$project/code/$"
+      params={{ project, _splat: resolved.path }}
+      search={resolved.line ? { line: resolved.line } : {}}
+      data-coderef={codeRef}
+    >
+      {children}
+    </RouterLink>
+  );
+}
 
 interface MarkdownProps {
   text: string;
@@ -56,10 +76,16 @@ interface MarkdownProps {
 }
 
 export function Markdown({ text, project, links = [], renderLink }: MarkdownProps) {
+  // Code refs need the repo on disk; absolute paths count only when inside it.
+  const repoRoot = useProject(project).data?.repo;
   return (
     <div className="prose prose-neutral dark:prose-invert max-w-none prose-pre:bg-muted prose-pre:text-foreground prose-code:before:content-none prose-code:after:content-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkWikiLinks]}
+        remarkPlugins={
+          typeof repoRoot === 'string'
+            ? [remarkGfm, remarkWikiLinks, [remarkCodeRefs, { repoRoot }]]
+            : [remarkGfm, remarkWikiLinks]
+        }
         urlTransform={urlTransform}
         components={{
           a: ({ href = '', children }) => {
@@ -81,6 +107,14 @@ export function Markdown({ text, project, links = [], renderLink }: MarkdownProp
                 >
                   {children}
                 </RouterLink>
+              );
+            }
+            const codeRef = codeRefOf(href);
+            if (codeRef !== null) {
+              return (
+                <CodeRefLink project={project} codeRef={codeRef}>
+                  {children}
+                </CodeRefLink>
               );
             }
             if (/^[a-z]+:/i.test(href) || href.startsWith('#')) {
