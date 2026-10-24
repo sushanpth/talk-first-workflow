@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -5,6 +6,7 @@ import { git, makeFixture, write } from './fixtures.test-helper.ts';
 import {
   changedFiles,
   defaultBase,
+  fileOnDisk,
   listWorktrees,
   parseNameStatus,
   parseWorktreeList,
@@ -108,4 +110,13 @@ describe('worktree diffs', () => {
     expect(await resolveCommit(fx.repo, 'nope')).toBeNull();
     expect(await resolveCommit(fx.repo, 'main')).toBe(git(fx.repo, 'rev-parse', 'main').trim());
   });
+
+  it('reads files on disk but refuses a FIFO without hanging', async () => {
+    const fx = makeFixture();
+    tmp = fx.tmp;
+    expect(await fileOnDisk(fx.repo, 'README.md')).toMatchObject({ binary: false });
+    rmSync(join(fx.repo, 'src', 'app.txt'));
+    execFileSync('mkfifo', [join(fx.repo, 'src', 'app.txt')]);
+    expect(await fileOnDisk(fx.repo, 'src/app.txt')).toBeNull();
+  }, 2000);
 });

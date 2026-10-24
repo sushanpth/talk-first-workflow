@@ -1,16 +1,15 @@
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { ListView } from '@/components/list-view';
 import { Markdown } from '@/components/markdown';
 import { QueryState } from '@/components/query-state';
 import { usePlan, usePlans } from '@/lib/api';
-import { patchSearch } from '@/lib/list-search';
+import { useListSearch } from '@/lib/list-search';
 import { formatDate } from '@/lib/utils';
 import { SORT_KEYS } from '../../../server/types.ts';
 
 export function PlansPage() {
   const { project } = useParams({ from: '/p/$project/plans' });
-  const search = useSearch({ from: '/p/$project/plans' });
-  const navigate = useNavigate({ from: '/p/$project/plans' });
+  const { search, onSearch } = useListSearch('/p/$project/plans');
   const query = usePlans(project, search);
   return (
     <ListView
@@ -18,7 +17,7 @@ export function PlansPage() {
       search={search}
       sortKeys={SORT_KEYS.plans}
       noun="plans"
-      onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+      onSearch={onSearch}
       empty="No saved plans. Plans appear here when a brief is saved at the start gate."
     >
       {(page) => (

@@ -36,3 +36,19 @@ export function paginate<T, S extends string>(
     nextOffset: end < matches.length ? end : null,
   };
 }
+
+/**
+ * `paginate` for a field that is costly to read, such as a file's mtime: `fill` runs on every item
+ * only when sorting by `key`, else on the returned page alone. `spec.text` must not read that field.
+ */
+export async function paginateFilling<T, S extends string>(
+  items: T[],
+  query: ListQuery<S>,
+  spec: ListSpec<T, S>,
+  key: S,
+  fill: (item: T) => Promise<T>,
+): Promise<Page<T>> {
+  if (query.sort === key) return paginate(await Promise.all(items.map(fill)), query, spec);
+  const page = paginate(items, query, spec);
+  return { ...page, items: await Promise.all(page.items.map(fill)) };
+}

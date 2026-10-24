@@ -1,11 +1,11 @@
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { FilterChips, ListView } from '@/components/list-view';
 import { Markdown } from '@/components/markdown';
 import { Empty, QueryState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemory, useNote } from '@/lib/api';
-import { type MemorySearch, patchSearch } from '@/lib/list-search';
+import { useListSearch } from '@/lib/list-search';
 import { formatDate } from '@/lib/utils';
 import { MEMORY_TYPES, type MemoryPage as MemoryPageData, SORT_KEYS } from '../../../server/types.ts';
 
@@ -45,11 +45,8 @@ function IndexCard({ project, memory }: { project: string; memory: MemoryPageDat
 
 export function MemoryPage() {
   const { project } = useParams({ from: '/p/$project/memory' });
-  const search = useSearch({ from: '/p/$project/memory' });
-  const navigate = useNavigate({ from: '/p/$project/memory' });
+  const { search, onSearch } = useListSearch('/p/$project/memory');
   const query = useMemory(project, search);
-  const onSearch = (patch: Partial<MemorySearch>) =>
-    navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch });
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <section className="min-w-0 space-y-2">
