@@ -21,6 +21,10 @@ Post the brief in chat, whole. It is the plan the user agrees to, and the text t
 # Brief: <title>
 Goal:
 Plan: (one concrete action per bullet, naming the files)
+Tracks: (or "none" for a single implementer)
+  Contract: (what gets fixed first, such as types, JSON shapes or file layout, and its files, or "none")
+  <name>: owns <files or folders>; done when <checks> (one line per track)
+  Integration: (what joins the tracks, and the full Done-when checks)
 Out of scope:
 Decisions: (each linked to memory where one exists, e.g. [[auth-uses-session-cookies]])
 Done when: (concrete checks: commands, tests, observable behaviour)
@@ -29,6 +33,8 @@ Complexity: low | medium | high · core logic: yes | no · reviewers: conformanc
 ```
 
 Complexity: **low** is a small change within one module; **medium** spans modules or adds a new component; **high** changes structure, data models or interfaces others depend on. Core business logic is the code that encodes the product's rules (pricing, permissions, calculations, state transitions), as opposed to UI, plumbing or config.
+
+Tracks: split the plan into tracks only when each part owns separate files, depends only on the contract, and is big enough to be worth its own agent. Otherwise write "none" and one implementer builds it all. Tests for a track's own code stay in that track; cross-cutting tests, such as end-to-end and contract tests, go in Integration.
 
 ### How to write the plan
 
