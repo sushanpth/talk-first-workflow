@@ -73,9 +73,15 @@ describe('paginate', () => {
       total: 4,
       nextOffset: 2,
     });
-    expect(paginate(items, query({ limit: 2, offset: 2 }), spec)).toMatchObject({ total: 4, nextOffset: null });
+    expect(paginate(items, query({ limit: 2, offset: 2 }), spec)).toMatchObject({
+      total: 4,
+      nextOffset: null,
+    });
     expect(names({ limit: 2, offset: 2 })).toEqual(['delta', 'Gamma']);
-    expect(paginate(items, query({ limit: 3, offset: 1 }), spec)).toMatchObject({ total: 4, nextOffset: null });
+    expect(paginate(items, query({ limit: 3, offset: 1 }), spec)).toMatchObject({
+      total: 4,
+      nextOffset: null,
+    });
     expect(paginate(items, query({ offset: 10 }), spec)).toEqual({ items: [], total: 4, nextOffset: null });
     expect(paginate([], query(), spec)).toEqual({ items: [], total: 0, nextOffset: null });
   });

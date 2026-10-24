@@ -1,4 +1,4 @@
-import { realpath } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, sep } from 'node:path';
 
 export function isInside(root: string, target: string): boolean {
@@ -18,4 +18,10 @@ export async function realInside(roots: string[], target: string): Promise<strin
     if (realRoot && isInside(realRoot, real)) return real;
   }
   return null;
+}
+
+/** The file's mtime as ISO 8601, or null when it can't be stat'ed. */
+export async function modifiedAt(path: string): Promise<string | null> {
+  const info = await stat(path).catch(() => null);
+  return info ? info.mtime.toISOString() : null;
 }

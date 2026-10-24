@@ -12,7 +12,11 @@ export interface ListSpec<T, S extends string> {
 const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 /** Filters on `q`, sorts stably by the query's key and order, then slices one page. */
-export function paginate<T, S extends string>(items: T[], query: ListQuery<S>, spec: ListSpec<T, S>): Page<T> {
+export function paginate<T, S extends string>(
+  items: T[],
+  query: ListQuery<S>,
+  spec: ListSpec<T, S>,
+): Page<T> {
   const q = query.q.toLowerCase();
   const matches = q
     ? items.filter((item) => spec.text(item).some((field) => field?.toLowerCase().includes(q)))
