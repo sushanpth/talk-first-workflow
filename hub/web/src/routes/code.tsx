@@ -4,11 +4,13 @@ import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
 import { CodeSearchForm } from '@/components/code-search-form';
 import { CodeTree } from '@/components/code-tree';
 import { CopyLinkButton } from '@/components/copy-link-button';
+import { Markdown } from '@/components/markdown';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { QuickOpen } from '@/components/quick-open';
 import { Button } from '@/components/ui/button';
 import { CODE_SEARCH_PAGE_SIZE, type CodeSearchParams, useCodeFile, useCodeSearch } from '@/lib/code-api';
 import { groupByFile, highlight } from '@/lib/code-search';
+import { effectiveView, isMarkdownPath, resolveRelative } from '@/lib/code-view';
 import { cn, formatSize } from '@/lib/utils';
 import { CODE_SEARCH_MAX_MATCHES, CODE_SEARCH_QUERY_MAX } from '../../../server/code-types.ts';
 
@@ -19,8 +21,9 @@ const positiveInt = (value: unknown): number | undefined => {
   return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : undefined;
 };
 
-export const parseCodeFileSearch = (search: Record<string, unknown>): { line?: number } => ({
+export const parseCodeFileSearch = (search: Record<string, unknown>): { line?: number; view?: 'source' } => ({
   line: positiveInt(search.line),
+  view: search.view === 'source' ? 'source' : undefined,
 });
 
 export const parseCodeSearch = (search: Record<string, unknown>): CodeSearchParams => ({
@@ -85,15 +88,39 @@ export function CodeIndexPage() {
 
 export function CodeFilePage() {
   const { project, _splat: path = '' } = useParams({ from: '/p/$project/code/$' });
-  const { line } = useSearch({ from: '/p/$project/code/$' });
+  const { line, view } = useSearch({ from: '/p/$project/code/$' });
   const navigate = useNavigate({ from: '/p/$project/code/$' });
   const query = useCodeFile(project, path);
+  const mode = effectiveView(path, view, line);
   let body: ReactNode;
   if (query.isPending) body = <Empty>Loading...</Empty>;
   else if (query.isError) body = <ErrorBox error={query.error} />;
   else if (query.data.binary) body = <Empty>Binary file; not shown.</Empty>;
   else if (query.data.tooLarge || query.data.content === null) {
     body = <Empty>Too large to show ({formatSize(query.data.size)}).</Empty>;
+  } else if (mode === 'rendered') {
+    body = (
+      <div className="h-full overflow-auto p-4">
+        <Markdown
+          text={query.data.content}
+          project={project}
+          renderLink={(href, children) => {
+            const target = resolveRelative(path, href);
+            return target ? (
+              <Link to="/p/$project/code/$" params={{ project, _splat: target }}>
+                {children}
+              </Link>
+            ) : null;
+          }}
+          // No raw-file endpoint to load repo images from.
+          renderImage={(src, alt) => (
+            <span className="text-muted-foreground italic" title={src}>
+              {alt || src}
+            </span>
+          )}
+        />
+      </div>
+    );
   } else {
     body = (
       <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading editor...</p>}>
@@ -102,7 +129,7 @@ export function CodeFilePage() {
           path={path}
           content={query.data.content}
           line={line}
-          onLineClick={(n) => navigate({ search: { line: n }, replace: true })}
+          onLineClick={(n) => navigate({ search: (prev) => ({ ...prev, line: n }), replace: true })}
         />
       </Suspense>
     );
@@ -116,10 +143,39 @@ export function CodeFilePage() {
           {query.data && ` · ${formatSize(query.data.size)}`}
           {line && ` · line ${line}`}
         </p>
+        {isMarkdownPath(path) && !simple && (
+          // biome-ignore lint/a11y/useSemanticElements: a fieldset would add a border and legend we don't want here.
+          <div role="group" aria-label="View" className="flex gap-1">
+            <ViewChip
+              label="Rendered"
+              active={mode === 'rendered'}
+              onClick={() => navigate({ search: (prev) => ({ ...prev, view: undefined, line: undefined }) })}
+            />
+            <ViewChip
+              label="Source"
+              active={mode === 'source'}
+              onClick={() => navigate({ search: (prev) => ({ ...prev, view: 'source' }) })}
+            />
+          </div>
+        )}
         <CopyLinkButton />
       </div>
       <div className={cn('min-h-0 flex-1 overflow-hidden rounded-md border', simple && 'p-4')}>{body}</div>
     </div>
+  );
+}
+
+function ViewChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <Button
+      variant={active ? 'secondary' : 'ghost'}
+      size="sm"
+      aria-pressed={active}
+      className={cn(active && 'ring-1 ring-border')}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
   );
 }
 

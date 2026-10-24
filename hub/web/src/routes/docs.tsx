@@ -3,20 +3,10 @@ import { ListView } from '@/components/list-view';
 import { Markdown } from '@/components/markdown';
 import { QueryState } from '@/components/query-state';
 import { useDoc, useDocs } from '@/lib/api';
+import { resolveRelative } from '@/lib/code-view';
 import { useListSearch } from '@/lib/list-search';
 import { formatDate } from '@/lib/utils';
 import { SORT_KEYS } from '../../../server/types.ts';
-
-/** Resolves a relative link against the doc's folder, e.g. ("docs/a.md", "../README.md") -> "README.md"; null above the repo. */
-function resolveRelative(from: string, href: string): string | null {
-  const parts = from.split('/').slice(0, -1);
-  for (const piece of href.split('#')[0]?.split('/') ?? []) {
-    if (piece === '..') {
-      if (parts.pop() === undefined) return null;
-    } else if (piece && piece !== '.') parts.push(piece);
-  }
-  return parts.join('/');
-}
 
 export function DocsPage() {
   const { project } = useParams({ from: '/p/$project/docs/' });

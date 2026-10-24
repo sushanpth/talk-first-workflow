@@ -73,9 +73,13 @@ interface MarkdownProps {
   links?: Link[];
   /** Maps a relative href to an in-app link, or null to leave it alone. */
   renderLink?: (href: string, children: ReactNode) => ReactNode | null;
+  /** Replaces images with a relative src, or null to leave one alone. */
+  renderImage?: (src: string, alt: string) => ReactNode | null;
 }
 
-export function Markdown({ text, project, links = [], renderLink }: MarkdownProps) {
+const isExternal = (url: string) => /^[a-z]+:/i.test(url) || url.startsWith('//');
+
+export function Markdown({ text, project, links = [], renderLink, renderImage }: MarkdownProps) {
   // Code refs need the repo on disk; absolute paths count only when inside it.
   const repoRoot = useProject(project).data?.repo;
   return (
@@ -88,6 +92,14 @@ export function Markdown({ text, project, links = [], renderLink }: MarkdownProp
         }
         urlTransform={urlTransform}
         components={{
+          ...(renderImage && {
+            img: ({ node: _node, ...props }) => {
+              const { src, alt = '' } = props;
+              const replaced =
+                typeof src === 'string' && src && !isExternal(src) ? renderImage(src, alt) : null;
+              return replaced ?? <img {...props} alt={alt} />;
+            },
+          }),
           a: ({ href = '', children }) => {
             if (href.startsWith(WIKI_PREFIX)) {
               const target = decodeURIComponent(href.slice(WIKI_PREFIX.length));
