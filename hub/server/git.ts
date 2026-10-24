@@ -140,7 +140,9 @@ export async function changedFiles(worktreePath: string, base: string): Promise<
 
 /** Committed changes between two commits; untracked files never appear. */
 export async function branchChanges(repo: string, from: string, to: string): Promise<ChangedFile[]> {
-  return parseNameStatus(await git(repo, 'diff', '--name-status', '-M', '-z', '--end-of-options', from, to, '--'));
+  return parseNameStatus(
+    await git(repo, 'diff', '--name-status', '-M', '-z', '--end-of-options', from, to, '--'),
+  );
 }
 
 const MAX_FILE = 4 * 1024 * 1024;

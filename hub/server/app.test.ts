@@ -247,6 +247,66 @@ describe('API', () => {
     expect((await api('/api/projects/shop/worktrees/agent-1?base=--output=x')).status).toBe(400);
   });
 
+  it('compares local branches from their merge-base', async () => {
+    git(fx.repo, 'checkout', '-qb', 'feature');
+    write(join(fx.repo, 'src', 'app.txt'), 'one\nTWO\n');
+    git(fx.repo, 'mv', 'docs/guide.md', 'docs/handbook.md');
+    git(fx.repo, 'commit', '-qam', 'feature work');
+    git(fx.repo, 'checkout', '-q', 'main');
+    write(join(fx.repo, 'README.md'), '# Shop v2\n');
+    git(fx.repo, 'commit', '-qam', 'main moves on');
+    git(fx.repo, 'tag', 'v1');
+    const mergeBase = git(fx.repo, 'rev-parse', 'main~1').trim();
+    const headCommit = git(fx.repo, 'rev-parse', 'feature').trim();
+    const compare = '/api/projects/shop/code/compare';
+
+    expect((await api('/api/projects/shop/code/branches')).body).toEqual({
+      branches: ['feature', 'main'],
+      current: 'main',
+    });
+    expect((await api(`${compare}?base=main&head=feature`)).body).toEqual({
+      base: 'main',
+      head: 'feature',
+      mergeBase,
+      headCommit,
+      files: [
+        { status: 'R', path: 'docs/handbook.md', oldPath: 'docs/guide.md' },
+        { status: 'M', path: 'src/app.txt' },
+      ],
+    });
+    expect((await api(`${compare}/file?base=main&head=feature&path=src/app.txt`)).body).toMatchObject({
+      original: 'one\ntwo\n',
+      modified: 'one\nTWO\n',
+      binary: false,
+    });
+    expect((await api(`${compare}/file?base=main&head=feature&path=docs/handbook.md`)).body).toMatchObject({
+      status: 'R',
+      original: '# Guide\n',
+      modified: '# Guide\n',
+    });
+    expect((await api(`${compare}?base=main&head=main`)).body.files).toEqual([]);
+    expect((await api(`${compare}/file?base=main&head=feature&path=README.md`)).status).toBe(404);
+    for (const [base, head] of [
+      ['main', '--output=x'],
+      ['-n', 'feature'],
+      ['main', 'v1'],
+      ['main', 'nope'],
+      ['main', ''],
+    ]) {
+      const res = await api(`${compare}?base=${base}&head=${head}`);
+      expect(res.status, `${base}..${head}`).toBe(400);
+      expect((await api(`${compare}/file?base=${base}&head=${head}&path=src/app.txt`)).status).toBe(400);
+    }
+  });
+
+  it('refuses to compare branches with unrelated histories', async () => {
+    git(fx.repo, 'checkout', '-q', '--orphan', 'other');
+    git(fx.repo, 'commit', '-qm', 'unrelated');
+    git(fx.repo, 'checkout', '-q', 'main');
+    const res = await api('/api/projects/shop/code/compare?base=main&head=other');
+    expect(res).toEqual({ status: 400, body: { error: 'main and other share no history' } });
+  });
+
   it('labels a worktree with the task and brief of the agent that ran in it', async () => {
     const wt = join(fx.repo, '.claude', 'worktrees', 'agent-a1');
     git(fx.repo, 'worktree', 'add', '-q', '-b', 'tf/login', wt);
