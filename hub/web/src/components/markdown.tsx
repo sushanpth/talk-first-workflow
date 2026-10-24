@@ -2,6 +2,7 @@ import { Link as RouterLink } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { MermaidDiagram } from '@/components/mermaid-diagram';
 import { type Link, useProject } from '@/lib/api';
 import { useCodeRef } from '@/lib/code-api';
 import { codeRefOf, type MdNode, remarkCodeRefs } from '@/lib/code-refs';
@@ -92,6 +93,17 @@ export function Markdown({ text, project, links = [], renderLink }: MarkdownProp
         }
         urlTransform={urlTransform}
         components={{
+          pre: ({ node, children }) => {
+            const code = node?.children[0];
+            const isMermaid =
+              code?.type === 'element' &&
+              code.tagName === 'code' &&
+              Array.isArray(code.properties.className) &&
+              code.properties.className.includes('language-mermaid');
+            if (!isMermaid) return <pre>{children}</pre>;
+            const source = code.children.map((c) => (c.type === 'text' ? c.value : '')).join('');
+            return <MermaidDiagram source={source} />;
+          },
           // Remote images would let untrusted repos track the reader, and there's no endpoint for repo files.
           img: ({ src, alt = '' }) => {
             const url = typeof src === 'string' ? src : '';

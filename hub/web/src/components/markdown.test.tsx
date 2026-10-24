@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Markdown } from './markdown.tsx';
+
+// Node has no DOM for mermaid; the stub only proves nothing renders it during markup.
+vi.mock('mermaid', () => ({ default: { initialize: vi.fn(), render: vi.fn() } }));
 
 const render = (text: string) =>
   renderToStaticMarkup(
@@ -34,5 +37,26 @@ describe('Markdown images', () => {
   it('still renders an inline data image', () => {
     const src = 'data:image/png;base64,iVBORw0KGgo=';
     expect(render(`![dot](${src})`)).toContain(`<img src="${src}" alt="dot"/>`);
+  });
+});
+
+describe('Markdown code fences', () => {
+  it('renders a mermaid fence as a diagram, not a code block', () => {
+    const html = render('```mermaid\nflowchart TD\n  A --> B\n```');
+    expect(html).toContain('data-mermaid');
+    expect(html).toContain('Loading diagram');
+    expect(html).not.toContain('language-mermaid');
+  });
+
+  it('leaves other languages as code blocks', () => {
+    const html = render('```ts\nconst a = 1;\n```');
+    expect(html).toContain('<pre><code class="language-ts">const a = 1;\n</code></pre>');
+    expect(html).not.toContain('data-mermaid');
+  });
+
+  it('leaves a fence with no language as a code block', () => {
+    const html = render('```\nflowchart TD\n```');
+    expect(html).toContain('<pre><code>flowchart TD\n</code></pre>');
+    expect(html).not.toContain('data-mermaid');
   });
 });
