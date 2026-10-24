@@ -72,7 +72,7 @@ Options:
 - **Keep the branch**: remove the worktree (and in a parallel run the contract and track ones, as above; only the integration branch is kept), and tell the user the branch name.
 - **Discard**: remove the worktree (and in a parallel run the contract and track ones, as above) and the branch, name every branch you deleted, then ask whether to retry. A retry means: talk with the user about what went wrong, save the reason to memory, revise the plan, and go back to the start gate.
 - **Look first**: run the Hub command from the session context with `open worktree <worktree path> --base <base commit>` so the diff opens in the browser, and give the worktree path and branch (if the hub can't run, give its one-line error with the path and branch). Wait until the user says they are done looking, then ask this question again.
-- **Fix should-fix first**: send the remaining should-fix items to the same implementer with SendMessage (in a parallel run, the Integration implementer), rerun the reviewers that raised them, report again, then ask this question again. Offer this option only when should-fix items remain.
+- **Fix should-fix first**: send the remaining should-fix items to the same implementer with SendMessage (in a parallel run, the Integration implementer), rerun the reviewers that raised them, report again, then ask this question again. If the rerun raises blockers, fix them as in step 4; those fix rounds count toward the same two-round limit, so once two rounds have run with blockers still open, stop and ask the user what to do. Offer this option only when should-fix items remain, and at most twice per run.
 
 AskUserQuestion shows at most four options, so choose the buttons on each run:
 

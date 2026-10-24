@@ -4,9 +4,9 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Empty, ErrorBox } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
 import { ApiError, type Page } from '@/lib/api';
-import type { ListSearch } from '@/lib/list-search';
+import { type ListSearch, prevOffset } from '@/lib/list-search';
 import { cn } from '@/lib/utils';
-import { defaultOrder, LIST_LIMIT_DEFAULT, type Order } from '../../../server/types.ts';
+import { defaultOrder, type Order } from '../../../server/types.ts';
 
 const FILTER_DEBOUNCE_MS = 200;
 const DATE_ORDER: Record<Order, string> = { desc: 'Newest first', asc: 'Oldest first' };
@@ -61,10 +61,19 @@ interface ToolbarProps<S extends string> {
   onSearch: (patch: Partial<ListSearch<S>>) => void;
   noun: string;
   page: Page<unknown> | undefined;
+  /** True while `page` is still the previous query's data. */
+  stale?: boolean;
 }
 
 /** Filter box, sort select with an order toggle, and Prev/Next; every change goes to the URL. */
-export function ListToolbar<S extends string>({ search, sortKeys, onSearch, noun, page }: ToolbarProps<S>) {
+export function ListToolbar<S extends string>({
+  search,
+  sortKeys,
+  onSearch,
+  noun,
+  page,
+  stale = false,
+}: ToolbarProps<S>) {
   const sort = search.sort ?? sortKeys[0] ?? '';
   const order = search.order ?? defaultOrder(sort);
   const flipped = order === 'asc' ? 'desc' : 'asc';
@@ -72,6 +81,11 @@ export function ListToolbar<S extends string>({ search, sortKeys, onSearch, noun
   const orderLabel = (defaultOrder(sort) === 'desc' ? DATE_ORDER : TEXT_ORDER)[order];
   const offset = search.offset ?? 0;
   const shown = page?.items.length ?? 0;
+  // Kept across pages so Prev from a short last page still steps back a full page.
+  const pageSize = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (page && !stale && page.nextOffset !== null) pageSize.current = page.nextOffset - offset;
+  }, [page, stale, offset]);
 
   return (
     <div className="flex flex-wrap items-center gap-2" data-section="list-toolbar">
@@ -113,7 +127,7 @@ export function ListToolbar<S extends string>({ search, sortKeys, onSearch, noun
           size="sm"
           aria-label="Previous page"
           disabled={offset === 0}
-          onClick={() => onSearch({ offset: Math.max(0, offset - LIST_LIMIT_DEFAULT) })}
+          onClick={() => onSearch({ offset: prevOffset(offset, pageSize.current, shown) })}
         >
           <ChevronLeft aria-hidden />
           Prev
@@ -213,7 +227,7 @@ export function ListView<S extends string, P extends Page<unknown>>({
 
   return (
     <div className="space-y-3">
-      <ListToolbar {...toolbar} page={page} />
+      <ListToolbar {...toolbar} page={page} stale={query.isPlaceholderData} />
       {filters}
       <div
         aria-busy={query.isFetching}

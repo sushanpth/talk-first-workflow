@@ -12,5 +12,5 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true
   },
-  "include": ["cli.ts", "server/**/*.ts"]
+  "include": ["cli.ts", "server/**/*.ts", "vitest.config.mts"]
 }

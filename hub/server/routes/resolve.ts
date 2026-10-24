@@ -3,7 +3,17 @@ import { Hono } from 'hono';
 import { listWorktrees, resolveCommit, trackedMarkdown } from '../git.ts';
 import { memoryDump, memoryStatus } from '../memory.ts';
 import { realInside } from '../paths.ts';
+import type { Project } from '../types.ts';
 import { fail, type RouteContext } from './context.ts';
+
+/** The project whose memory folder really holds `target`, and the target's real path. */
+async function memoryOwner(list: Project[], target: string): Promise<{ p: Project; real: string } | null> {
+  for (const p of list) {
+    const real = await realInside([p.memoryDir], target);
+    if (real) return { p, real };
+  }
+  return null;
+}
 
 /** Maps a file the launcher was asked to open to its page in the UI. */
 export function resolveRoutes(ctx: RouteContext): Hono {
@@ -24,16 +34,13 @@ export function resolveRoutes(ctx: RouteContext): Hono {
       return c.json({ url: `/p/${enc(p.id)}/docs/${rel.split('/').map(enc).join('/')}` });
     }
     if (kind === 'plan' || kind === 'note') {
-      const real =
-        (await realInside(await ctx.projects.roots(), target)) ??
-        fail(404, 'file is not in a known memory folder');
-      for (const p of list) {
-        const data = await memoryDump(p.memoryDir);
-        const items = kind === 'plan' ? data.briefs : data.notes;
-        const found = items.find((item) => item.path === real || item.path === target);
-        if (found && 'file' in found) return c.json({ url: `/p/${enc(p.id)}/plans/${enc(found.file)}` });
-        if (found) return c.json({ url: `/p/${enc(p.id)}/memory/${enc(found.name)}` });
-      }
+      const { p, real } =
+        (await memoryOwner(list, target)) ?? fail(404, 'file is not in a known memory folder');
+      const data = await memoryDump(p.memoryDir);
+      const items = kind === 'plan' ? data.briefs : data.notes;
+      const found = items.find((item) => item.path === real || item.path === target);
+      if (found && 'file' in found) return c.json({ url: `/p/${enc(p.id)}/plans/${enc(found.file)}` });
+      if (found) return c.json({ url: `/p/${enc(p.id)}/memory/${enc(found.name)}` });
       return fail(404, `not a ${kind} in a known memory folder`);
     }
     if (kind === 'worktree') {

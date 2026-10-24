@@ -5,6 +5,7 @@ import {
   parseListSearch,
   parseMemorySearch,
   patchSearch,
+  prevOffset,
 } from './list-search.ts';
 
 describe('parseListSearch', () => {
@@ -67,6 +68,26 @@ describe('patchSearch', () => {
 
   it('drops an empty filter', () => {
     expect(patchSearch({ q: 'a' }, { q: '' })).toEqual({});
+  });
+});
+
+describe('prevOffset', () => {
+  it('steps back by the page size the server used', () => {
+    expect(prevOffset(40, 20, 20)).toBe(20);
+    expect(prevOffset(150, 50, 50)).toBe(100);
+  });
+
+  it('steps back a full page from a short last page', () => {
+    expect(prevOffset(40, 20, 3)).toBe(20);
+  });
+
+  it('falls back to the items shown when the size is unknown', () => {
+    expect(prevOffset(40, undefined, 20)).toBe(20);
+  });
+
+  it('never goes below zero, and goes to the start from an empty page', () => {
+    expect(prevOffset(10, 20, 10)).toBe(0);
+    expect(prevOffset(500, undefined, 0)).toBe(0);
   });
 });
 

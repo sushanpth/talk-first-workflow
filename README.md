@@ -97,7 +97,7 @@ Requires Claude Code, Python 3 (standard library only) and Node.js with `npx` (f
 Install the browser build once (about 400 MB):
 
 ```
-npx -y @playwright/mcp@0.0.83 install-browser chrome-for-testing
+npx -y @playwright/mcp@0.0.83 install-browser chromium
 ```
 
 If you skip this, the agent asks before downloading it the first time it needs the browser.
@@ -117,7 +117,7 @@ Restart Claude Code after installing. The first session in each repo asks where 
 
 **Turn off:** `/plugin disable talk-first-workflow` (or disable it for one project in that project's settings).
 
-**Uninstall:** `/plugin uninstall talk-first-workflow@talk-first-workflow`, then `/plugin marketplace remove talk-first-workflow` if you also want the marketplace gone. Your memory folders stay where they are; delete them yourself if you don't want them. The hub's build and state live in `~/.cache/talk-first-workflow/`, which you can delete too.
+**Uninstall:** `/plugin uninstall talk-first-workflow@talk-first-workflow`, then `/plugin marketplace remove talk-first-workflow` if you also want the marketplace gone. Your memory folders stay where they are; delete them yourself if you don't want them. A few more things stay behind, which you can delete too: the hub's build and state in `~/.cache/talk-first-workflow/`, the `autoMemoryDirectory` entry in each set-up repo's gitignored `.claude/settings.local.json`, and the browser Playwright downloaded into its own cache (`~/.cache/ms-playwright/` on Linux, `~/Library/Caches/ms-playwright/` on macOS).
 
 ## Memory layout
 
@@ -184,7 +184,7 @@ Security model:
 - Memory notes, saved plans and the hub's build and state stay on your machine. Nothing is uploaded unless you commit a repo's `.memory/` folder yourself.
 - The hub is local-only and read-only. It listens on 127.0.0.1 and never changes your files.
 - The plugin sends nothing anywhere on its own. What the agents read, including memory notes, reaches the model through Claude Code's normal model calls, the same as any other session.
-- Network use you'd expect: `npx` downloads the Playwright browser package, the hub's first build downloads its packages with pnpm, the browser visits the pages the agent opens, and **Open a PR** pushes your branch to your remote.
+- Network use you'd expect: `npx` downloads the Playwright browser package, the hub's first build downloads its packages with pnpm, the browser visits the pages the agent opens, and **Open a PR** pushes your branch to your remote and creates the pull request on GitHub with `gh`.
 
 ## Good to know
 
