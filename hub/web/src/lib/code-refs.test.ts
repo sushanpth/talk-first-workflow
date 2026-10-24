@@ -90,6 +90,10 @@ describe('codeRefOf', () => {
     expect(codeRefOf('https://example.com')).toBeNull();
     expect(codeRefOf('coderef:a%2Fb.ts%3A3')).toBe('a/b.ts:3');
   });
+
+  it('answers null for a malformed escape instead of throwing', () => {
+    expect(codeRefOf('coderef:%E0')).toBeNull();
+  });
 });
 
 describe('chunk', () => {

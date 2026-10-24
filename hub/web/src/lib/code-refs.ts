@@ -14,9 +14,14 @@ const WHERE_LABEL = 'Where:';
 const LEADING = /^[(['"]+/;
 const TRAILING = /[.,;!?)\]}'"]+$/;
 
-/** The candidate ref inside a `coderef:` url, or null for any other url. */
+/** The candidate ref inside a `coderef:` url, or null for any other or malformed url. */
 export function codeRefOf(url: string): string | null {
-  return url.startsWith(PREFIX) ? decodeURIComponent(url.slice(PREFIX.length)) : null;
+  if (!url.startsWith(PREFIX)) return null;
+  try {
+    return decodeURIComponent(url.slice(PREFIX.length));
+  } catch {
+    return null;
+  }
 }
 
 const refLink = (ref: string, child: MdNode): MdNode => ({
