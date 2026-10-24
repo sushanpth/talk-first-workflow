@@ -8,6 +8,7 @@ import { Markdown } from '@/components/markdown';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { QuickOpen } from '@/components/quick-open';
 import { Button } from '@/components/ui/button';
+import { ViewChip } from '@/components/view-chip';
 import { useProject } from '@/lib/api';
 import { CODE_SEARCH_PAGE_SIZE, type CodeSearchParams, useCodeFile, useCodeSearch } from '@/lib/code-api';
 import { groupByFile, highlight } from '@/lib/code-search';
@@ -163,20 +164,6 @@ export function CodeFilePage() {
       </div>
       <div className={cn('min-h-0 flex-1 overflow-hidden rounded-md border', simple && 'p-4')}>{body}</div>
     </div>
-  );
-}
-
-function ViewChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <Button
-      variant={active ? 'secondary' : 'ghost'}
-      size="sm"
-      aria-pressed={active}
-      className={cn(active && 'ring-1 ring-border')}
-      onClick={onClick}
-    >
-      {label}
-    </Button>
   );
 }
 
