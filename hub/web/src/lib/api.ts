@@ -13,6 +13,7 @@ import type {
   WorktreeDiff,
   WorktreePage,
 } from '../../../server/types.ts';
+import { LIST_LIMIT_MAX } from '../../../server/types.ts';
 import { type ListSearch, listSearchParams, type MemorySearch } from './list-search.ts';
 
 export type {
@@ -56,6 +57,13 @@ export const useProjects = (search: ListSearch<SortKey<'projects'>>) =>
     queryKey: ['projects', search],
     queryFn: () => get<ProjectPage>(`/projects${listSearchParams(search)}`),
     placeholderData: keepPreviousData,
+  });
+
+/** Every project, up to the list limit, for the header's switcher. */
+export const useAllProjects = () =>
+  useQuery({
+    queryKey: ['projects', 'all'],
+    queryFn: () => get<ProjectPage>(`/projects?limit=${LIST_LIMIT_MAX}`),
   });
 
 export const useProject = (project: string) =>

@@ -1,5 +1,15 @@
-import { createRootRoute, createRoute, createRouter, Link, Outlet, redirect } from '@tanstack/react-router';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Link,
+  Outlet,
+  redirect,
+  useParams,
+} from '@tanstack/react-router';
+import { ProjectSwitcher } from '@/components/project-switcher';
 import { parseListSearch, parseMemorySearch } from '@/lib/list-search';
+import { cn } from '@/lib/utils';
 import {
   CodeFilePage,
   CodeIndexPage,
@@ -11,20 +21,47 @@ import {
 import { DocPage, DocsPage } from '@/routes/docs';
 import { MemoryPage, NotePage } from '@/routes/memory';
 import { PlanPage, PlansPage } from '@/routes/plans';
-import { ProjectLayout, ProjectsPage } from '@/routes/projects';
+import { ProjectLayout, ProjectsPage, SECTIONS } from '@/routes/projects';
 import { WorktreePage, WorktreesPage } from '@/routes/worktrees';
 
 function RootLayout() {
+  const { project } = useParams({ strict: false });
   return (
-    <div className="mx-auto max-w-7xl px-6 py-4">
-      <header className="mb-6 flex items-center gap-4 border-b pb-3">
-        <Link to="/" className="font-semibold">
-          talk-first hub
-        </Link>
-        <span className="text-xs text-muted-foreground">read-only</span>
+    <>
+      <header className="sticky top-0 z-20 border-b bg-background">
+        <div className="mx-auto flex h-12 max-w-7xl items-stretch gap-3 px-6">
+          <Link to="/" className="flex shrink-0 items-center font-semibold">
+            talk-first hub
+          </Link>
+          {project && (
+            <>
+              <span aria-hidden className="flex items-center text-muted-foreground">
+                /
+              </span>
+              <ProjectSwitcher project={project} />
+              {/* Scrolls sideways on narrow screens so the header stays one row. */}
+              <nav className="-mb-px flex min-w-0 overflow-x-auto">
+                {SECTIONS.map((s) => (
+                  <Link
+                    key={s.to}
+                    to={s.to}
+                    params={{ project }}
+                    className="flex shrink-0 items-center border-b-2 border-transparent px-3 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground"
+                    activeProps={{ className: cn('border-foreground! text-foreground!') }}
+                  >
+                    {s.label}
+                  </Link>
+                ))}
+              </nav>
+            </>
+          )}
+          <span className="ml-auto flex shrink-0 items-center text-xs text-muted-foreground">read-only</span>
+        </div>
       </header>
-      <Outlet />
-    </div>
+      <main className="mx-auto max-w-7xl px-6 py-4">
+        <Outlet />
+      </main>
+    </>
   );
 }
 
