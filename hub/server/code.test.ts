@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.ts';
-import { trackedFiles } from './code.ts';
+import { searchCode, trackedFiles } from './code.ts';
 import { CODE_FILE_MAX_BYTES, CODE_MATCH_LINE_MAX, CODE_SEARCH_MAX_MATCHES } from './code-types.ts';
 import { type Fixture, git, makeFixture, write } from './fixtures.test-helper.ts';
 import { ProjectStore } from './projects.ts';
@@ -241,6 +241,17 @@ describe('search', () => {
     expect(last.body.items).toHaveLength(100);
     expect(last.body.nextOffset).toBeNull();
   });
+  it('keeps a multi-megabyte line from slowing the search down', async () => {
+    commit({ 'bundle.min.js': `needle${'x'.repeat(48 * 1024 * 1024)}\nneedle two\n` });
+    const started = Date.now();
+    const { matches, truncated } = await searchCode(fx.repo, 'needle', true);
+    expect(Date.now() - started).toBeLessThan(1500);
+    expect(truncated).toBe(false);
+    expect(matches).toEqual([
+      { path: 'bundle.min.js', line: 1, text: `needle${'x'.repeat(CODE_MATCH_LINE_MAX - 6)}` },
+      { path: 'bundle.min.js', line: 2, text: 'needle two' },
+    ]);
+  }, 20000);
 });
 
 describe('resolve', () => {

@@ -126,30 +126,67 @@ function trimLine(text: string): string {
   return Array.from(line).slice(0, CODE_MATCH_LINE_MAX).join('');
 }
 
+// Room for CODE_MATCH_LINE_MAX code points; the rest of a long line is skipped, not buffered.
+const TEXT_KEEP_BYTES = CODE_MATCH_LINE_MAX * 4;
+const PATH_KEEP_BYTES = 64 * 1024;
+const STDERR_KEEP_CHARS = 4096;
+
 /**
- * Parses `git grep -n --null` records (`path NUL line NUL text LF`) from the front of `buffer`.
- * Returns the bytes after the last complete record.
+ * Streams `git grep -n --null` records (`path NUL line NUL text LF`) into `out`.
+ * Scans each chunk once and keeps only the head of each field, so a huge line stays linear.
  */
-function takeMatches(buffer: Buffer, out: CodeMatch[], max: number): Buffer {
-  let start = 0;
-  while (out.length < max) {
-    const pathEnd = buffer.indexOf(0, start);
-    if (pathEnd === -1) break;
-    const lineEnd = buffer.indexOf(0, pathEnd + 1);
-    if (lineEnd === -1) break;
-    const textEnd = buffer.indexOf(10, lineEnd + 1);
-    if (textEnd === -1) break;
-    const line = Number(buffer.toString('utf8', pathEnd + 1, lineEnd));
-    if (Number.isInteger(line) && line > 0) {
-      out.push({
-        path: buffer.toString('utf8', start, pathEnd),
-        line,
-        text: trimLine(buffer.toString('utf8', lineEnd + 1, textEnd)),
-      });
+class MatchParser {
+  private parts: Buffer[] = [];
+  private kept = 0;
+  private field: 'path' | 'line' | 'text' = 'path';
+  private path = '';
+  private line = 0;
+
+  constructor(
+    private readonly out: CodeMatch[],
+    private readonly max: number,
+  ) {}
+
+  push(chunk: Buffer): void {
+    let start = 0;
+    while (start < chunk.length && this.out.length < this.max) {
+      const end = chunk.indexOf(this.field === 'text' ? 10 : 0, start);
+      this.keep(chunk.subarray(start, end === -1 ? chunk.length : end));
+      if (end === -1) return;
+      this.endField();
+      start = end + 1;
     }
-    start = textEnd + 1;
   }
-  return buffer.subarray(start);
+
+  private keep(bytes: Buffer): void {
+    const room = (this.field === 'text' ? TEXT_KEEP_BYTES : PATH_KEEP_BYTES) - this.kept;
+    if (room <= 0 || bytes.length === 0) return;
+    // Copied so a kept slice doesn't pin the whole chunk.
+    const part = Buffer.from(bytes.subarray(0, room));
+    this.parts.push(part);
+    this.kept += part.length;
+  }
+
+  private take(): string {
+    const text = Buffer.concat(this.parts).toString('utf8');
+    this.parts = [];
+    this.kept = 0;
+    return text;
+  }
+
+  private endField(): void {
+    if (this.field === 'path') {
+      this.path = this.take();
+      this.field = 'line';
+    } else if (this.field === 'line') {
+      this.line = Number(this.take());
+      this.field = 'text';
+    } else {
+      const text = trimLine(this.take());
+      if (Number.isInteger(this.line) && this.line > 0) this.out.push({ path: this.path, line: this.line, text });
+      this.field = 'path';
+    }
+  }
 }
 
 export interface SearchResult {
@@ -176,7 +213,7 @@ export function searchCode(repo: string, query: string, caseSensitive: boolean):
   return new Promise((resolvePromise, reject) => {
     const child = spawn('git', args, { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });
     const matches: CodeMatch[] = [];
-    let pending: Buffer = Buffer.alloc(0);
+    const parser = new MatchParser(matches, CODE_SEARCH_MAX_MATCHES);
     let stderr = '';
     let truncated = false;
     const stop = () => {
@@ -187,11 +224,11 @@ export function searchCode(repo: string, query: string, caseSensitive: boolean):
 
     child.stdout.on('data', (chunk: Buffer) => {
       if (truncated) return;
-      pending = takeMatches(Buffer.concat([pending, chunk]), matches, CODE_SEARCH_MAX_MATCHES);
+      parser.push(chunk);
       if (matches.length >= CODE_SEARCH_MAX_MATCHES) stop();
     });
     child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
+      if (stderr.length < STDERR_KEEP_CHARS) stderr += chunk.toString('utf8', 0, STDERR_KEEP_CHARS);
     });
     child.on('error', (err) => {
       clearTimeout(timer);
