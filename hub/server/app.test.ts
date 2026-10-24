@@ -123,6 +123,11 @@ describe('API', () => {
     expect(body[0]).toMatchObject({ repo: fx.repo, memoryDir: fx.memoryDir, noteCount: 2, briefCount: 1 });
   });
 
+  it('allows reading repos, memory folders and the transcripts dir', async () => {
+    const transcripts = join(fx.tmp, 'claude', 'projects', fx.repo.replace(/[^A-Za-z0-9]/g, '-'));
+    expect(await new ProjectStore(hubPaths()).roots()).toEqual([fx.repo, fx.memoryDir, transcripts]);
+  });
+
   it('serves plans and memory notes', async () => {
     expect((await api('/api/projects/shop/plans')).body).toEqual([
       {
@@ -174,6 +179,49 @@ describe('API', () => {
     expect(file.body).toMatchObject({ original: 'one\ntwo\n', modified: 'one\nTWO\n', binary: false });
     expect((await api('/api/projects/shop/worktrees/agent-1/file?path=README.md')).status).toBe(404);
     expect((await api('/api/projects/shop/worktrees/agent-1?base=--output=x')).status).toBe(400);
+  });
+
+  it('labels a worktree with the task and brief of the agent that ran in it', async () => {
+    const wt = join(fx.repo, '.claude', 'worktrees', 'agent-a1');
+    git(fx.repo, 'worktree', 'add', '-q', '-b', 'tf/login', wt);
+    const subagents = join(
+      fx.tmp,
+      'claude',
+      'projects',
+      fx.repo.replace(/[^A-Za-z0-9]/g, '-'),
+      's1',
+      'subagents',
+    );
+    const brief = join(fx.memoryDir, 'briefs', '2026-10-23-login.md');
+    write(
+      join(subagents, 'agent-a1.meta.json'),
+      JSON.stringify({ agentType: 'implementer', description: 'Implement: Login page', worktreePath: wt }),
+    );
+    write(
+      join(subagents, 'agent-a1.jsonl'),
+      `${JSON.stringify({ message: { content: `Brief: ${brief}` } })}\n`,
+    );
+    const label = {
+      task: 'Implement: Login page',
+      agentType: 'implementer',
+      agentId: 'a1',
+      briefPath: brief,
+    };
+
+    expect((await api('/api/projects/shop/worktrees')).body).toEqual([
+      expect.objectContaining({ name: 'agent-a1', branch: 'tf/login', ...label }),
+    ]);
+    expect((await api('/api/projects/shop/worktrees/agent-a1')).body).toMatchObject(label);
+  });
+
+  it('leaves the agent fields null when no record matches', async () => {
+    git(fx.repo, 'worktree', 'add', '-q', '-b', 'x', join(fx.repo, '.claude', 'worktrees', 'x'));
+    expect((await api('/api/projects/shop/worktrees')).body[0]).toMatchObject({
+      task: null,
+      agentType: null,
+      agentId: null,
+      briefPath: null,
+    });
   });
 
   it('resolves launcher targets to UI URLs', async () => {

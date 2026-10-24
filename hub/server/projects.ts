@@ -1,6 +1,7 @@
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
+import { transcriptsDir } from './agents.ts';
 import { memoryProjects, memoryStatus } from './memory.ts';
 import { ensureHome, type HubPaths } from './state.ts';
 import type { Project } from './types.ts';
@@ -64,6 +65,16 @@ async function loadProjects(paths: HubPaths): Promise<Project[]> {
   return projects;
 }
 
+/** A folder the hub may read from, per project; add an entry to widen access. The hub never writes to one. */
+type RootSource = (project: Project) => string | null | Promise<string | null>;
+
+const ROOT_SOURCES: RootSource[] = [
+  (p) => p.repo,
+  (p) => p.memoryDir,
+  // Claude Code's session and agent transcripts.
+  (p) => (p.repo ? transcriptsDir(p.repo) : null),
+];
+
 /** Project list, cached briefly; a change to the registry file invalidates it at once. */
 export class ProjectStore {
   private cache: { at: number; key: string; projects: Promise<Project[]> } | null = null;
@@ -95,8 +106,10 @@ export class ProjectStore {
     return (await this.list()).find((p) => p.id === id);
   }
 
-  /** Every folder the hub may read from: project repos and memory folders. */
+  /** Every folder the hub may read from, from `ROOT_SOURCES`. */
   async roots(): Promise<string[]> {
-    return (await this.list()).flatMap((p) => (p.repo ? [p.repo, p.memoryDir] : [p.memoryDir]));
+    const projects = await this.list();
+    const found = await Promise.all(projects.flatMap((p) => ROOT_SOURCES.map((source) => source(p))));
+    return found.filter((root): root is string => root !== null);
   }
 }
