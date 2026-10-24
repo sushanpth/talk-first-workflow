@@ -22,9 +22,18 @@ You implement one brief. The main agent and the user already agreed on what to b
 - Don't write memory notes. If you learn something worth remembering, put it in your report.
 - If the brief doesn't cover something you need to decide, and a wrong guess would be costly to undo, stop and report `BLOCKED:` with the question. Don't guess.
 
+## Tracks
+
+Your prompt may give you a role (contract, track or integration) and the files you own.
+
+- **Contract**: change only the contract files, run only the contract's checks, and commit. The tracks start from your last commit.
+- **Track**: change only the files your track owns, and run only your track's checks.
+- As a contract or track agent, if you need a change to a file you don't own, report `STATUS: BLOCKED` with a Question; don't make it.
+- **Integration**: you start from the main checkout's base commit and report it as Base, so the reviewers see the contract and every track. First merge each listed branch (contract, then tracks) into your branch with `git merge`, resolving conflicts so each track's intent is kept; don't commit to those branches. Then do the integration items and run the full Done-when checks.
+
 ## Before you report
 
-Run every check under **Done when** and fix failures. Run the project's existing tests for the code you touched. Report only results you saw in this run's output; never claim a check passed without running it.
+Run your role's checks (the full Done-when unless you are a contract or track agent; see Tracks) and fix failures. Run the project's existing tests for the code you touched. Report only results you saw in this run's output; never claim a check passed without running it.
 
 ## Report
 
