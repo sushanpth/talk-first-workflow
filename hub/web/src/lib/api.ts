@@ -1,17 +1,29 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, type Query, useQuery } from '@tanstack/react-query';
 import type {
-  AgentWorktree,
   Brief,
   DocFile,
+  DocPage,
   FileDiff,
-  MemoryOverview,
+  MemoryPage,
   Note,
-  PlanSummary,
+  PlanPage,
   Project,
+  ProjectPage,
+  SortKey,
   WorktreeDiff,
+  WorktreePage,
 } from '../../../server/types.ts';
+import { type ListSearch, listSearchParams, type MemorySearch } from './list-search.ts';
 
-export type { AgentWorktree, Brief, ChangedFile, Link, Note, Project } from '../../../server/types.ts';
+export type {
+  AgentWorktree,
+  Brief,
+  ChangedFile,
+  Link,
+  Note,
+  Page,
+  Project,
+} from '../../../server/types.ts';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -33,14 +45,28 @@ const enc = encodeURIComponent;
 const p = (project: string) => `/projects/${enc(project)}`;
 const withBase = (base: string | undefined) => (base ? `base=${enc(base)}` : '');
 
-export const useProjects = () =>
-  useQuery({ queryKey: ['projects'], queryFn: () => get<Project[]>('/projects') });
+// Keeps the current page on screen while the next loads, but never shows another project's list.
+const keepPageOf =
+  (project: string) =>
+  <T>(prev: T | undefined, prevQuery: Query<T, Error, T, readonly unknown[]> | undefined) =>
+    prevQuery?.queryKey[1] === project ? prev : undefined;
+
+export const useProjects = (search: ListSearch<SortKey<'projects'>>) =>
+  useQuery({
+    queryKey: ['projects', search],
+    queryFn: () => get<ProjectPage>(`/projects${listSearchParams(search)}`),
+    placeholderData: keepPreviousData,
+  });
 
 export const useProject = (project: string) =>
   useQuery({ queryKey: ['project', project], queryFn: () => get<Project>(p(project)) });
 
-export const usePlans = (project: string) =>
-  useQuery({ queryKey: ['plans', project], queryFn: () => get<PlanSummary[]>(`${p(project)}/plans`) });
+export const usePlans = (project: string, search: ListSearch<SortKey<'plans'>>) =>
+  useQuery({
+    queryKey: ['plans', project, search],
+    queryFn: () => get<PlanPage>(`${p(project)}/plans${listSearchParams(search)}`),
+    placeholderData: keepPageOf(project),
+  });
 
 export const usePlan = (project: string, file: string) =>
   useQuery({
@@ -48,8 +74,12 @@ export const usePlan = (project: string, file: string) =>
     queryFn: () => get<Brief>(`${p(project)}/plans/${enc(file)}`),
   });
 
-export const useMemory = (project: string) =>
-  useQuery({ queryKey: ['memory', project], queryFn: () => get<MemoryOverview>(`${p(project)}/memory`) });
+export const useMemory = (project: string, search: MemorySearch) =>
+  useQuery({
+    queryKey: ['memory', project, search],
+    queryFn: () => get<MemoryPage>(`${p(project)}/memory${listSearchParams(search)}`),
+    placeholderData: keepPageOf(project),
+  });
 
 export const useNote = (project: string, name: string) =>
   useQuery({
@@ -57,8 +87,12 @@ export const useNote = (project: string, name: string) =>
     queryFn: () => get<Note>(`${p(project)}/memory/${enc(name)}`),
   });
 
-export const useDocs = (project: string) =>
-  useQuery({ queryKey: ['docs', project], queryFn: () => get<string[]>(`${p(project)}/docs`) });
+export const useDocs = (project: string, search: ListSearch<SortKey<'docs'>>) =>
+  useQuery({
+    queryKey: ['docs', project, search],
+    queryFn: () => get<DocPage>(`${p(project)}/docs${listSearchParams(search)}`),
+    placeholderData: keepPageOf(project),
+  });
 
 export const useDoc = (project: string, path: string) =>
   useQuery({
@@ -66,10 +100,11 @@ export const useDoc = (project: string, path: string) =>
     queryFn: () => get<DocFile>(`${p(project)}/doc?path=${enc(path)}`),
   });
 
-export const useWorktrees = (project: string) =>
+export const useWorktrees = (project: string, search: ListSearch<SortKey<'worktrees'>>) =>
   useQuery({
-    queryKey: ['worktrees', project],
-    queryFn: () => get<AgentWorktree[]>(`${p(project)}/worktrees`),
+    queryKey: ['worktrees', project, search],
+    queryFn: () => get<WorktreePage>(`${p(project)}/worktrees${listSearchParams(search)}`),
+    placeholderData: keepPageOf(project),
   });
 
 export const useWorktreeDiff = (project: string, name: string, base?: string) =>

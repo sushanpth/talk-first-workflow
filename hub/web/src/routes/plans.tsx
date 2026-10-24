@@ -1,34 +1,50 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { ListView } from '@/components/list-view';
 import { Markdown } from '@/components/markdown';
-import { Empty, QueryState } from '@/components/query-state';
+import { QueryState } from '@/components/query-state';
 import { usePlan, usePlans } from '@/lib/api';
+import { patchSearch } from '@/lib/list-search';
+import { formatDate } from '@/lib/utils';
+import { SORT_KEYS } from '../../../server/types.ts';
 
 export function PlansPage() {
   const { project } = useParams({ from: '/p/$project/plans' });
-  const query = usePlans(project);
+  const search = useSearch({ from: '/p/$project/plans' });
+  const navigate = useNavigate({ from: '/p/$project/plans' });
+  const query = usePlans(project, search);
   return (
-    <QueryState query={query}>
-      {(plans) =>
-        plans.length === 0 ? (
-          <Empty>No saved plans. Plans appear here when a brief is saved at the start gate.</Empty>
-        ) : (
-          <ul className="divide-y rounded-md border">
-            {plans.map((plan) => (
-              <li key={plan.file}>
-                <Link
-                  to="/p/$project/plans/$brief"
-                  params={{ project, brief: plan.file }}
-                  className="block px-4 py-3 hover:bg-accent"
-                >
+    <ListView
+      query={query}
+      search={search}
+      sortKeys={SORT_KEYS.plans}
+      noun="plans"
+      onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+      empty="No saved plans. Plans appear here when a brief is saved at the start gate."
+    >
+      {(page) => (
+        <ul className="divide-y rounded-md border">
+          {page.items.map((plan) => (
+            <li key={plan.file}>
+              <Link
+                to="/p/$project/plans/$brief"
+                params={{ project, brief: plan.file }}
+                className="flex items-start gap-3 px-4 py-3 hover:bg-accent"
+              >
+                <div className="min-w-0 flex-1">
                   <div className="font-medium">{plan.title}</div>
                   <div className="font-mono text-xs text-muted-foreground">{plan.file}</div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </QueryState>
+                </div>
+                {plan.date && (
+                  <time dateTime={plan.date} className="shrink-0 text-sm text-muted-foreground">
+                    {formatDate(plan.date)}
+                  </time>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ListView>
   );
 }
 
