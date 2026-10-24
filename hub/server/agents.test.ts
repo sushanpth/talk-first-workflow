@@ -1,8 +1,9 @@
 import { rmSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { agentRecords, briefPathFrom, transcriptsDir } from './agents.ts';
+import { agentRecords, briefPathFrom, labelWorktrees } from './agents.ts';
 import { type Fixture, makeFixture, write } from './fixtures.test-helper.ts';
+import type { Project } from './types.ts';
 
 let fx: Fixture;
 let dir: string;
@@ -12,8 +13,8 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(fx.tmp, { recursive: true, force: true }));
 
-const meta = (session: string, id: string, record: unknown, age = 0): string => {
-  const path = join(dir, session, 'subagents', `agent-${id}.meta.json`);
+const meta = (session: string, id: string, record: unknown, age = 0, base = dir): string => {
+  const path = join(base, session, 'subagents', `agent-${id}.meta.json`);
   write(path, typeof record === 'string' ? record : JSON.stringify(record));
   const when = Date.now() / 1000 - age;
   utimesSync(path, when, when);
@@ -30,7 +31,7 @@ describe('agent records', () => {
     meta('s2', 'bad', '{not json');
     meta('s2', 'odd', { agentType: 7, description: null, worktreePath: join(fx.tmp, 'odd') });
 
-    const records = await agentRecords(dir);
+    const records = await agentRecords([dir]);
     expect(records.get(wt)).toEqual({
       agentId: 'b',
       agentType: 'implementer',
@@ -42,12 +43,35 @@ describe('agent records', () => {
   });
 
   it('returns nothing for a missing transcripts dir', async () => {
-    expect((await agentRecords(join(fx.tmp, 'missing'))).size).toBe(0);
+    expect((await agentRecords([join(fx.tmp, 'missing')])).size).toBe(0);
+    expect((await agentRecords([])).size).toBe(0);
   });
 
-  it('takes the transcripts dir from memory.py', async () => {
-    const slug = fx.repo.replace(/[^A-Za-z0-9]/g, '-');
-    expect(await transcriptsDir(fx.repo)).toBe(join(fx.tmp, 'claude', 'projects', slug));
+  it('merges records from several transcript folders, the newest per worktree winning', async () => {
+    const other = join(fx.tmp, 'transcripts-work');
+    const one = join(fx.repo, '.claude', 'worktrees', 'agent-1');
+    const two = join(fx.repo, '.claude', 'worktrees', 'agent-2');
+    meta('s1', 'old1', { description: 'Old one', worktreePath: one }, 600);
+    meta('s1', 'new2', { description: 'New two', worktreePath: two }, 60);
+    meta('s9', 'new1', { description: 'New one', worktreePath: one }, 60, other);
+    meta('s9', 'old2', { description: 'Old two', worktreePath: two }, 600, other);
+
+    const records = await agentRecords([dir, join(fx.tmp, 'missing'), other]);
+    expect(records.get(one)).toMatchObject({ agentId: 'new1', task: 'New one' });
+    expect(records.get(one)?.transcript).toBe(join(other, 's9', 'subagents', 'agent-new1.jsonl'));
+    expect(records.get(two)).toMatchObject({ agentId: 'new2', task: 'New two' });
+
+    const project: Project = {
+      id: 'shop',
+      name: 'shop',
+      repo: fx.repo,
+      memoryDir: fx.memoryDir,
+      noteCount: 0,
+      briefCount: 0,
+      transcriptDirs: [dir, other],
+    };
+    const trees = [one, two].map((path) => ({ name: path, path, branch: null, head: 'abc' }));
+    expect((await labelWorktrees(project, trees)).map((t) => t.task)).toEqual(['New one', 'New two']);
   });
 });
 

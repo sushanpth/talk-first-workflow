@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.ts';
-import { type Fixture, git, makeFixture, write } from './fixtures.test-helper.ts';
+import { type Fixture, git, makeFixture, transcriptsIn, write } from './fixtures.test-helper.ts';
 import { ProjectStore, registerRepo } from './projects.ts';
 import { hubPaths } from './state.ts';
 
@@ -148,9 +148,12 @@ describe('API', () => {
     });
   });
 
-  it('allows reading repos, memory folders and the transcripts dir', async () => {
-    const transcripts = join(fx.tmp, 'claude', 'projects', fx.repo.replace(/[^A-Za-z0-9]/g, '-'));
-    expect(await new ProjectStore(hubPaths()).roots()).toEqual([fx.repo, fx.memoryDir, transcripts]);
+  it('allows reading repos, memory folders and every transcripts dir', async () => {
+    const transcripts = [join(fx.tmp, 'claude'), join(fx.home, '.claude-work')].map((h) =>
+      transcriptsIn(h, fx.repo),
+    );
+    for (const dir of transcripts) mkdirSync(dir, { recursive: true });
+    expect(await new ProjectStore(hubPaths()).roots()).toEqual([fx.repo, fx.memoryDir, ...transcripts]);
   });
 
   it('serves plans and memory notes', async () => {
