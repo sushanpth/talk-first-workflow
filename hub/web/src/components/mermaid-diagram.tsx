@@ -69,11 +69,14 @@ export function MermaidDiagram({ source }: { source: string }) {
 
   if (result && 'error' in result) {
     const message = result.error.trim();
+    // Parse errors put the location first and the reason last, with an excerpt between.
+    const lines = message.split('\n').filter((l) => l.trim() !== '');
+    const summary = lines.length > 1 ? `${lines[0]} ${lines[lines.length - 1]}` : message;
     return (
       <div data-mermaid="error" className="not-prose my-4 space-y-2">
         {code}
         <p className="truncate text-sm text-destructive" title={message}>
-          Diagram error: {message.split('\n')[0]}
+          Diagram error: {summary}
         </p>
       </div>
     );
