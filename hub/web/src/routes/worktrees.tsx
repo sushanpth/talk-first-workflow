@@ -1,8 +1,9 @@
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, type ReactNode, Suspense, useState } from 'react';
 import { Empty, ErrorBox, QueryState } from '@/components/query-state';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { type ChangedFile, useFileDiff, useWorktreeDiff, useWorktrees } from '@/lib/api';
+import { type AgentWorktree, type ChangedFile, useFileDiff, useWorktreeDiff, useWorktrees } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const DiffView = lazy(() => import('@/components/diff-view'));
@@ -16,6 +17,45 @@ const STATUS: Record<string, { label: string; className: string }> = {
   C: { label: 'copied', className: 'text-blue-600 dark:text-blue-400' },
 };
 
+/** Title (the agent's task, else the folder name), branch and agent badges, plan link and path. */
+function WorktreeHeading({
+  project,
+  tree,
+  title,
+}: {
+  project: string;
+  tree: AgentWorktree;
+  title: ReactNode;
+}) {
+  const brief = tree.briefPath?.split('/').at(-1);
+  return (
+    <div className="min-w-0 space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        {title}
+        <Badge variant="secondary" className="font-mono">
+          {tree.branch ?? 'detached'}
+        </Badge>
+        {tree.agentType && (
+          <Badge variant="outline" title={tree.agentType}>
+            {tree.agentType.split(':').at(-1)}
+          </Badge>
+        )}
+        {brief && (
+          // Above the row's stretched link so it stays clickable.
+          <Link
+            to="/p/$project/plans/$brief"
+            params={{ project, brief }}
+            className="relative z-10 text-xs underline"
+          >
+            plan
+          </Link>
+        )}
+      </div>
+      <div className="break-all font-mono text-xs text-muted-foreground">{tree.path}</div>
+    </div>
+  );
+}
+
 export function WorktreesPage() {
   const { project } = useParams({ from: '/p/$project/worktrees' });
   const query = useWorktrees(project);
@@ -27,17 +67,20 @@ export function WorktreesPage() {
         ) : (
           <ul className="divide-y rounded-md border">
             {trees.map((t) => (
-              <li key={t.path}>
-                <Link
-                  to="/p/$project/worktrees/$name"
-                  params={{ project, name: t.name }}
-                  className="block px-4 py-3 hover:bg-accent"
-                >
-                  <div className="font-medium">
-                    {t.name} <span className="text-sm text-muted-foreground">{t.branch ?? 'detached'}</span>
-                  </div>
-                  <div className="break-all font-mono text-xs text-muted-foreground">{t.path}</div>
-                </Link>
+              <li key={t.path} className="relative px-4 py-3 hover:bg-accent">
+                <WorktreeHeading
+                  project={project}
+                  tree={t}
+                  title={
+                    <Link
+                      to="/p/$project/worktrees/$name"
+                      params={{ project, name: t.name }}
+                      className="font-medium after:absolute after:inset-0"
+                    >
+                      {t.task ?? t.name}
+                    </Link>
+                  }
+                />
               </li>
             ))}
           </ul>
@@ -99,16 +142,19 @@ export function WorktreePage() {
     <QueryState query={diff}>
       {(d) => (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-medium">{d.branch ?? 'detached'}</span>
-            <span className="font-mono text-xs text-muted-foreground">
-              base {d.base.slice(0, 10)} {base ? '(given)' : '(merge-base with the main checkout)'}
-            </span>
-            <span className="break-all font-mono text-xs text-muted-foreground">{d.path}</span>
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+            <WorktreeHeading
+              project={project}
+              tree={d}
+              title={<h2 className="text-lg font-semibold">{d.task ?? d.name}</h2>}
+            />
             <Button variant="outline" size="sm" className="ml-auto" onClick={() => setSideBySide((v) => !v)}>
               {sideBySide ? 'Inline view' : 'Side-by-side view'}
             </Button>
           </div>
+          <p className="font-mono text-xs text-muted-foreground">
+            base {d.base.slice(0, 10)} {base ? '(given)' : '(merge-base with the main checkout)'}
+          </p>
           {d.files.length === 0 ? (
             <Empty>No changes against the base.</Empty>
           ) : (
