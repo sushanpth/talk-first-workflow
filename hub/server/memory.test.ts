@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { type Fixture, makeFixture, write } from './fixtures.test-helper.ts';
+import { type Fixture, makeFixture, transcriptsIn, write } from './fixtures.test-helper.ts';
 import { memoryDump, memoryProjects, memoryStatus } from './memory.ts';
 
 // Runs the real scripts/memory.py; the zod schemas inside these calls reject any shape drift.
@@ -14,13 +14,31 @@ describe('memory.py JSON contract', () => {
 
   it('lists projects with a .source file', async () => {
     expect(await memoryProjects()).toEqual([
-      { name: 'shop', memory_dir: fx.memoryDir, repo: fx.repo, note_count: 2, brief_count: 1 },
+      {
+        name: 'shop',
+        memory_dir: fx.memoryDir,
+        repo: fx.repo,
+        note_count: 2,
+        brief_count: 1,
+        transcript_dirs: [],
+      },
     ]);
   });
 
   it('reports status for a repo', async () => {
     const status = await memoryStatus(fx.repo);
     expect(status).toMatchObject({ repo_root: fx.repo, is_git: true, memory_dir: fx.memoryDir });
+    expect(status.transcript_dirs).toEqual([]);
+  });
+
+  it('lists transcript folders from every Claude config folder', async () => {
+    const dirs = [join(fx.home, '.claude'), join(fx.home, '.claude-work')].map((h) =>
+      transcriptsIn(h, fx.repo),
+    );
+    for (const dir of dirs) write(join(dir, 'session.jsonl'), '');
+    write(join(fx.home, '.claude-empty', 'settings.json'), '{}');
+    expect((await memoryStatus(fx.repo)).transcript_dirs).toEqual(dirs);
+    expect((await memoryProjects())[0]?.transcript_dirs).toEqual(dirs);
   });
 
   it('dumps notes with links and backlinks, and briefs apart from notes', async () => {

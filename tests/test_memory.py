@@ -187,6 +187,46 @@ class TestSetup:
         assert memory.status(plain)["is_git"] is False
 
 
+class TestClaudeHomes:
+    def make_homes(self, env):
+        for name in (".claude", ".claude-work"):
+            (env["home"] / name / "projects").mkdir(parents=True)
+        (env["home"] / ".claude-empty").mkdir()
+        (env["home"] / ".claude-notes").write_text("not a folder\n")
+
+    def test_lists_config_dir_default_and_extra_homes(self, env):
+        self.make_homes(env)
+        home = env["home"]
+        assert memory.claude_homes() == [env["claude_home"], home / ".claude", home / ".claude-work"]
+
+    def test_without_config_dir_and_without_duplicates(self, env, monkeypatch):
+        self.make_homes(env)
+        home = env["home"]
+        monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+        assert memory.claude_homes() == [home / ".claude", home / ".claude-work"]
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(home / ".claude-work"))
+        assert memory.claude_homes() == [home / ".claude-work", home / ".claude"]
+        (home / ".claude-link").symlink_to(home / ".claude-work")
+        assert memory.claude_homes() == [home / ".claude-work", home / ".claude"]
+
+    def test_status_lists_transcript_dirs_that_exist(self, repo, env):
+        self.make_homes(env)
+        home = env["home"]
+        assert memory.status(repo)["transcript_dirs"] == []
+        slug = memory.sanitize(repo)
+        for base in (home / ".claude", home / ".claude-work"):
+            (base / "projects" / slug).mkdir()
+        assert memory.status(repo)["transcript_dirs"] == [
+            str(home / ".claude" / "projects" / slug), str(home / ".claude-work" / "projects" / slug)]
+        assert memory.status(repo)["legacy_dir"] == str(env["claude_home"] / "projects" / slug / "memory")
+
+    def test_projects_list_transcript_dirs(self, repo, env):
+        memory.init(repo, in_repo=False, do_migrate=False)
+        work = env["home"] / ".claude-work" / "projects" / memory.sanitize(repo)
+        work.mkdir(parents=True)
+        assert memory.projects()[0]["transcript_dirs"] == [str(work)]
+
+
 class TestCli:
     def test_check_reads_stdin_and_sets_exit_code(self, capsys, monkeypatch):
         import io
@@ -256,9 +296,9 @@ class TestHubJson:
         (env["memory_root"] / "stray").mkdir()
         assert memory.projects() == [
             {"name": "other", "memory_dir": str(env["memory_root"] / "other"), "repo": "/elsewhere/other",
-             "note_count": 2, "brief_count": 2},
+             "note_count": 2, "brief_count": 2, "transcript_dirs": []},
             {"name": "shop", "memory_dir": str(env["memory_root"] / "shop"), "repo": str(repo),
-             "note_count": 0, "brief_count": 0},
+             "note_count": 0, "brief_count": 0, "transcript_dirs": []},
         ]
 
     def test_projects_with_no_memory_root(self, env):
