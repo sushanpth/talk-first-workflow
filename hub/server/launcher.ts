@@ -217,7 +217,9 @@ export function parseOpenArgs(args: string[], cwd: string): OpenRequest & { prin
   const baseAt = args.indexOf('--base');
   const base = baseAt >= 0 ? args[baseAt + 1] : undefined;
   if (baseAt >= 0 && !base) throw new CliError(`--base needs a commit.\n${USAGE}`);
-  const positional = args.filter((a, i) => a !== '--print-url' && i !== baseAt && i !== baseAt + 1);
+  const positional = args.filter(
+    (a, i) => a !== '--print-url' && (baseAt < 0 || (i !== baseAt && i !== baseAt + 1)),
+  );
   const request = parseOpen(positional, cwd);
   if (base) request.query.base = base;
   return { ...request, printUrl };
