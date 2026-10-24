@@ -19,9 +19,9 @@ function resolveRelative(from: string, href: string): string | null {
 }
 
 export function DocsPage() {
-  const { project } = useParams({ from: '/p/$project/docs' });
-  const search = useSearch({ from: '/p/$project/docs' });
-  const navigate = useNavigate({ from: '/p/$project/docs' });
+  const { project } = useParams({ from: '/p/$project/docs/' });
+  const search = useSearch({ from: '/p/$project/docs/' });
+  const navigate = useNavigate({ from: '/p/$project/docs/' });
   const query = useDocs(project, search);
   return (
     <ListView

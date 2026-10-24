@@ -61,13 +61,15 @@ const noteRoute = createRoute({
   path: '/memory/$note',
   component: NotePage,
 });
-const docsRoute = createRoute({
-  getParentRoute: () => projectRoute,
-  path: '/docs',
+// Nested on purpose: as flat siblings, the `/docs/$` splat also matches `/docs` and wins.
+const docsRoute = createRoute({ getParentRoute: () => projectRoute, path: '/docs' });
+const docsIndexRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: '/',
   component: DocsPage,
   validateSearch: (search: Record<string, unknown>) => parseListSearch('docs', search),
 });
-const docRoute = createRoute({ getParentRoute: () => projectRoute, path: '/docs/$', component: DocPage });
+const docRoute = createRoute({ getParentRoute: () => docsRoute, path: '$', component: DocPage });
 const worktreesRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/worktrees',
@@ -92,8 +94,7 @@ const routeTree = rootRoute.addChildren([
     planRoute,
     memoryRoute,
     noteRoute,
-    docsRoute,
-    docRoute,
+    docsRoute.addChildren([docsIndexRoute, docRoute]),
     worktreesRoute,
     worktreeRoute,
   ]),
