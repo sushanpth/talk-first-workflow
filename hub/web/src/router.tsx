@@ -1,5 +1,13 @@
 import { createRootRoute, createRoute, createRouter, Link, Outlet, redirect } from '@tanstack/react-router';
 import { parseListSearch, parseMemorySearch } from '@/lib/list-search';
+import {
+  CodeFilePage,
+  CodeIndexPage,
+  CodeLayout,
+  CodeSearchPage,
+  parseCodeFileSearch,
+  parseCodeSearch,
+} from '@/routes/code';
 import { DocPage, DocsPage } from '@/routes/docs';
 import { MemoryPage, NotePage } from '@/routes/memory';
 import { PlanPage, PlansPage } from '@/routes/plans';
@@ -70,6 +78,21 @@ const docsIndexRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => parseListSearch('docs', search),
 });
 const docRoute = createRoute({ getParentRoute: () => docsRoute, path: '$', component: DocPage });
+// Nested like docs; the static `/search` outranks the `$` file splat.
+const codeRoute = createRoute({ getParentRoute: () => projectRoute, path: '/code', component: CodeLayout });
+const codeIndexRoute = createRoute({ getParentRoute: () => codeRoute, path: '/', component: CodeIndexPage });
+const codeSearchRoute = createRoute({
+  getParentRoute: () => codeRoute,
+  path: '/search',
+  component: CodeSearchPage,
+  validateSearch: parseCodeSearch,
+});
+const codeFileRoute = createRoute({
+  getParentRoute: () => codeRoute,
+  path: '$',
+  component: CodeFilePage,
+  validateSearch: parseCodeFileSearch,
+});
 const worktreesRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/worktrees',
@@ -95,6 +118,7 @@ const routeTree = rootRoute.addChildren([
     memoryRoute,
     noteRoute,
     docsRoute.addChildren([docsIndexRoute, docRoute]),
+    codeRoute.addChildren([codeIndexRoute, codeSearchRoute, codeFileRoute]),
     worktreesRoute,
     worktreeRoute,
   ]),
