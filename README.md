@@ -94,7 +94,7 @@ flowchart TB
 
 Requires Claude Code, Python 3 (standard library only) and Node.js with `npx` (for the bundled browser). The optional hub also needs Node.js 22.18 or newer and pnpm.
 
-Install the browser build once (about 400 MB):
+Install the browser build once (about 675 MB):
 
 ```
 npx -y @playwright/mcp@0.0.83 install-browser chromium
@@ -151,6 +151,7 @@ The hub is a read-only web page on your machine. It shows, per project:
 - **Memory**: every note and the `MEMORY.md` index. `[[links]]` are clickable and each note lists its backlinks.
 - **Docs**: the repo's tracked `*.md` files.
 - **Worktrees**: each linked worktree's changed files against its base (by default the merge-base with the main checkout's branch), in a side-by-side or inline diff. A worktree made by an agent is titled with the agent's task, with its branch, agent type and a link to its plan.
+- **Code**: the repo's tracked files in a folder tree and a read-only viewer whose `?line=` links jump to a line. Ctrl/Cmd+P quick-opens a file by name, and a search page finds text in files, grouped by file. Code references in plans, notes and docs, such as `hub/server/app.ts:42`, link into the viewer.
 
 Every list has a filter box, a sort menu with an order toggle, and Prev and Next buttons. Filtering, sorting and paging happen on the server, 50 items per page, and the current filter, sort and page are kept in the URL.
 

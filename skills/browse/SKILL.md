@@ -27,7 +27,7 @@ The plugin's `browser` MCP server starts its own headless Chromium on the first 
 3. `browser_snapshot` is the main way to read a page and get element refs for clicks; `browser_evaluate` returns compact values from the DOM. Screenshots and snapshots are saved under `~/.cache/talk-first-workflow/browser/`.
 4. Call `browser_close` when done.
 
-If a call fails with `Browser ... is not installed`, ask the user before downloading it (about 400 MB), then run `npx -y @playwright/mcp@0.0.83 install-browser chrome-for-testing`. If `npx` itself is missing, Node.js isn't installed; use Claude in Chrome instead and tell the user.
+If a call fails with `Browser ... is not installed`, ask the user before downloading it (about 675 MB), then run `npx -y @playwright/mcp@0.0.83 install-browser chromium`. If `npx` itself is missing, Node.js isn't installed; use Claude in Chrome instead and tell the user.
 
 ## Before opening Chrome
 
