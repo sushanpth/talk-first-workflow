@@ -8,6 +8,7 @@ import {
   useParams,
 } from '@tanstack/react-router';
 import { ProjectSwitcher } from '@/components/project-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { parseListSearch, parseMemorySearch } from '@/lib/list-search';
 import { cn } from '@/lib/utils';
 import {
@@ -55,7 +56,10 @@ function RootLayout() {
               </nav>
             </>
           )}
-          <span className="ml-auto flex shrink-0 items-center text-xs text-muted-foreground">read-only</span>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span className="text-xs text-muted-foreground">read-only</span>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-6 py-4">
