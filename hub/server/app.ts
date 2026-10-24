@@ -1,6 +1,7 @@
 import { type ErrorHandler, Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { ProjectStore } from './projects.ts';
+import { codeRoutes } from './routes/code.ts';
 import { routeContext } from './routes/context.ts';
 import { docRoutes } from './routes/docs.ts';
 import { memoryRoutes } from './routes/memory.ts';
@@ -44,6 +45,7 @@ export function createApp(options: AppOptions): Hono {
     docRoutes(ctx),
     worktreeRoutes(ctx),
     resolveRoutes(ctx),
+    codeRoutes(ctx),
   ]) {
     api.route('/', routes);
   }
