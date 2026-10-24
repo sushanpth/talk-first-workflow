@@ -35,7 +35,7 @@ export function QuickOpen({ project, onClose }: { project: string; onClose: () =
     navigate({ to: '/p/$project/code/$', params: { project, _splat: path } });
   };
 
-  // The content wrapper fills the dialog, so only the backdrop targets the dialog itself. Requiring
+  // The wrapper fills the dialog and carries its border, so only the backdrop targets the dialog. Requiring
   // the press to start there too keeps a text-select drag out of the input from closing it.
   const pressedBackdrop = useRef(false);
   const onMouseDown = (e: MouseEvent<HTMLDialogElement>) => {
@@ -64,9 +64,9 @@ export function QuickOpen({ project, onClose }: { project: string; onClose: () =
       onMouseDown={onMouseDown}
       onClick={onClick}
       aria-label="Go to file"
-      className="mx-auto mt-[15vh] w-[min(40rem,calc(100vw-2rem))] rounded-lg border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/40"
+      className="mx-auto mt-[15vh] w-[min(40rem,calc(100vw-2rem))] bg-transparent p-0 text-foreground backdrop:bg-black/40"
     >
-      <div>
+      <div className="rounded-lg border bg-background shadow-lg">
         <div className="flex items-center gap-2 border-b px-3">
           <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <input
