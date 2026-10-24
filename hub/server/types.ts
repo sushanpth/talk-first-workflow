@@ -9,6 +9,7 @@ export const memoryProjectSchema = z.object({
   repo: z.string(),
   note_count: z.number().int(),
   brief_count: z.number().int(),
+  transcript_dirs: z.array(z.string()),
 });
 
 export const memoryStatusSchema = z.object({
@@ -17,6 +18,7 @@ export const memoryStatusSchema = z.object({
   memory_dir: z.string(),
   legacy_dir: z.string(),
   note_count: z.number().int(),
+  transcript_dirs: z.array(z.string()),
 });
 
 export const noteSchema = z.object({
@@ -59,6 +61,8 @@ export interface Project {
   memoryDir: string;
   noteCount: number;
   briefCount: number;
+  /** Claude Code's session folders for this repo, one per config folder that has any. */
+  transcriptDirs: string[];
 }
 
 export interface PlanSummary {

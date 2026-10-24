@@ -1,7 +1,6 @@
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
-import { transcriptsDir } from './agents.ts';
 import { memoryProjects, memoryStatus } from './memory.ts';
 import { ensureHome, type HubPaths } from './state.ts';
 import type { Project } from './types.ts';
@@ -39,6 +38,7 @@ async function loadProjects(paths: HubPaths): Promise<Project[]> {
       memoryDir: entry.memory_dir,
       noteCount: entry.note_count,
       briefCount: entry.brief_count,
+      transcriptDirs: entry.transcript_dirs,
     });
   }
   for (const repo of registeredRepos(paths)) {
@@ -49,6 +49,7 @@ async function loadProjects(paths: HubPaths): Promise<Project[]> {
     const known = projects.find((p) => p.memoryDir === status.memory_dir || (root && p.repo === root));
     if (known) {
       known.repo ??= root;
+      known.transcriptDirs = [...new Set([...known.transcriptDirs, ...status.transcript_dirs])];
       continue;
     }
     let id = basename(status.repo_root);
@@ -60,19 +61,20 @@ async function loadProjects(paths: HubPaths): Promise<Project[]> {
       memoryDir: status.memory_dir,
       noteCount: status.note_count,
       briefCount: 0,
+      transcriptDirs: status.transcript_dirs,
     });
   }
   return projects;
 }
 
 /** A folder the hub may read from, per project; add an entry to widen access. The hub never writes to one. */
-type RootSource = (project: Project) => string | null | Promise<string | null>;
+type RootSource = (project: Project) => (string | null)[];
 
 const ROOT_SOURCES: RootSource[] = [
-  (p) => p.repo,
-  (p) => p.memoryDir,
-  // Claude Code's session and agent transcripts.
-  (p) => (p.repo ? transcriptsDir(p.repo) : null),
+  (p) => [p.repo],
+  (p) => [p.memoryDir],
+  // Claude Code's session and agent transcripts, from every config folder.
+  (p) => p.transcriptDirs,
 ];
 
 /** Project list, cached briefly; a change to the registry file invalidates it at once. */
@@ -109,7 +111,7 @@ export class ProjectStore {
   /** Every folder the hub may read from, from `ROOT_SOURCES`. */
   async roots(): Promise<string[]> {
     const projects = await this.list();
-    const found = await Promise.all(projects.flatMap((p) => ROOT_SOURCES.map((source) => source(p))));
+    const found = projects.flatMap((p) => ROOT_SOURCES.flatMap((source) => source(p)));
     return found.filter((root): root is string => root !== null);
   }
 }

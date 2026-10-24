@@ -1,6 +1,5 @@
 import { open, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { memoryStatus } from './memory.ts';
 import type { AgentInfo, Project, Worktree } from './types.ts';
 
 // Claude Code's subagent records are undocumented: every field is optional and bad files are skipped.
@@ -18,21 +17,6 @@ export interface AgentRecord {
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
 
-const dirs = new Map<string, Promise<string | null>>();
-
-/** Claude Code's transcripts folder for a repo: the parent of memory.py's `legacy_dir`. */
-export function transcriptsDir(repo: string): Promise<string | null> {
-  let dir = dirs.get(repo);
-  if (!dir) {
-    dir = memoryStatus(repo).then(
-      (status) => dirname(status.legacy_dir),
-      () => null,
-    );
-    dirs.set(repo, dir);
-  }
-  return dir;
-}
-
 async function readMeta(path: string): Promise<{ record: Record<string, unknown>; mtime: number } | null> {
   try {
     const info = await stat(path);
@@ -46,11 +30,15 @@ async function readMeta(path: string): Promise<{ record: Record<string, unknown>
   }
 }
 
-/** Agent records under `<dir>/<session>/subagents/`, keyed by worktree path; the newest record wins. */
-export async function agentRecords(dir: string): Promise<Map<string, AgentRecord>> {
+/** Agent records under each `<dir>/<session>/subagents/`, keyed by worktree path; the newest record wins. */
+export async function agentRecords(dirs: string[]): Promise<Map<string, AgentRecord>> {
   const found = new Map<string, AgentRecord & { mtime: number }>();
-  const sessions = await readdir(dir, { withFileTypes: true }).catch(() => []);
-  for (const session of sessions) {
+  const sessions = await Promise.all(
+    dirs.map(async (dir) =>
+      (await readdir(dir, { withFileTypes: true }).catch(() => [])).map((entry) => ({ dir, entry })),
+    ),
+  );
+  for (const { dir, entry: session } of sessions.flat()) {
     if (!session.isDirectory()) continue;
     const folder = join(dir, session.name, 'subagents');
     const files = await readdir(folder, { withFileTypes: true }).catch(() => []);
@@ -117,8 +105,7 @@ export async function briefPathFrom(transcript: string, memoryDir: string): Prom
 }
 
 async function labeller(project: Project): Promise<(tree: Worktree) => Promise<AgentInfo>> {
-  const dir = project.repo ? await transcriptsDir(project.repo) : null;
-  const records = dir ? await agentRecords(dir) : new Map<string, AgentRecord>();
+  const records = await agentRecords(project.transcriptDirs);
   return async (tree) => {
     const record = records.get(resolve(tree.path));
     return {
