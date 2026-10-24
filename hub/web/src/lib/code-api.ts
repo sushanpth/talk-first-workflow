@@ -8,21 +8,13 @@ import {
   type CodeSearchPage,
   type CodeTree,
 } from '../../../server/code-types.ts';
-import { ApiError } from './api.ts';
+import { get } from './api.ts';
 import { chunk } from './code-refs.ts';
 
 export type { CodeMatch, CodeRef, CodeTreeEntry } from '../../../server/code-types.ts';
 
 const QUICK_OPEN_LIMIT = 50;
 export const CODE_SEARCH_PAGE_SIZE = 100;
-
-// Same as get() in api.ts, which isn't exported.
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`/api${path}`, { credentials: 'same-origin' });
-  const body = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new ApiError(res.status, body.error ?? `request failed (${res.status})`);
-  return body as T;
-}
 
 const enc = encodeURIComponent;
 const code = (project: string) => `/projects/${enc(project)}/code`;

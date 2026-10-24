@@ -21,7 +21,14 @@ beforeEach(() => {
   const dist = join(fx.tmp, 'dist');
   mkdirSync(dist, { recursive: true });
   writeFileSync(join(dist, 'index.html'), '<!doctype html>');
-  app = createApp({ token: TOKEN, port: () => PORT, projects: new ProjectStore(hubPaths()), dist });
+  app = createApp({
+    token: TOKEN,
+    port: () => PORT,
+    projects: new ProjectStore(hubPaths()),
+    dist,
+    version: '1.2.3',
+    build: 'abc',
+  });
 });
 afterEach(() => rmSync(fx.tmp, { recursive: true, force: true }));
 
