@@ -1,3 +1,4 @@
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import {
   defaultOrder,
   type ListName,
@@ -71,4 +72,22 @@ export function listSearchParams(search: ListSearch & { type?: string }): string
   }
   const text = params.toString();
   return text ? `?${text}` : '';
+}
+
+/** Routes whose search is a list's toolbar state. */
+type ListRoute =
+  | '/'
+  | '/p/$project/plans'
+  | '/p/$project/memory'
+  | '/p/$project/docs/'
+  | '/p/$project/worktrees';
+
+/** A list page's URL state, and the toolbar handler that patches it; typing in the filter replaces history. */
+export function useListSearch<F extends ListRoute>(from: F) {
+  const search = useSearch({ from });
+  const navigate = useNavigate();
+  // Loose patch type: the router can't relate a generic route's search to its own navigate options.
+  const onSearch = (patch: Partial<MemorySearch | ListSearch<SortKey<ListName>>>) =>
+    navigate({ to: '.', search: (prev) => patchSearch(prev, patch), replace: 'q' in patch });
+  return { search, onSearch };
 }

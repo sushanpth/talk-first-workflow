@@ -1,9 +1,9 @@
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { ListView } from '@/components/list-view';
 import { Markdown } from '@/components/markdown';
 import { QueryState } from '@/components/query-state';
 import { useDoc, useDocs } from '@/lib/api';
-import { patchSearch } from '@/lib/list-search';
+import { useListSearch } from '@/lib/list-search';
 import { formatDate } from '@/lib/utils';
 import { SORT_KEYS } from '../../../server/types.ts';
 
@@ -20,8 +20,7 @@ function resolveRelative(from: string, href: string): string | null {
 
 export function DocsPage() {
   const { project } = useParams({ from: '/p/$project/docs/' });
-  const search = useSearch({ from: '/p/$project/docs/' });
-  const navigate = useNavigate({ from: '/p/$project/docs/' });
+  const { search, onSearch } = useListSearch('/p/$project/docs/');
   const query = useDocs(project, search);
   return (
     <ListView
@@ -29,7 +28,7 @@ export function DocsPage() {
       search={search}
       sortKeys={SORT_KEYS.docs}
       noun="docs"
-      onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+      onSearch={onSearch}
       empty="No tracked markdown files."
     >
       {(page) => (

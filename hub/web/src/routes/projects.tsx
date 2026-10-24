@@ -1,10 +1,10 @@
-import { Link, Outlet, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { ListView } from '@/components/list-view';
 import { QueryState } from '@/components/query-state';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useProject, useProjects } from '@/lib/api';
-import { patchSearch } from '@/lib/list-search';
+import { useListSearch } from '@/lib/list-search';
 import { cn } from '@/lib/utils';
 import { SORT_KEYS } from '../../../server/types.ts';
 
@@ -16,8 +16,7 @@ const SECTIONS = [
 ] as const;
 
 export function ProjectsPage() {
-  const search = useSearch({ from: '/' });
-  const navigate = useNavigate({ from: '/' });
+  const { search, onSearch } = useListSearch('/');
   const query = useProjects(search);
   return (
     <div className="space-y-4">
@@ -27,7 +26,7 @@ export function ProjectsPage() {
         search={search}
         sortKeys={SORT_KEYS.projects}
         noun="projects"
-        onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+        onSearch={onSearch}
         empty="No projects yet. Set up memory in a repo, or open the hub from one."
       >
         {(page) => (

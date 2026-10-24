@@ -5,7 +5,7 @@ import { Empty, ErrorBox, QueryState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type AgentWorktree, type ChangedFile, useFileDiff, useWorktreeDiff, useWorktrees } from '@/lib/api';
-import { patchSearch } from '@/lib/list-search';
+import { useListSearch } from '@/lib/list-search';
 import { cn } from '@/lib/utils';
 import { SORT_KEYS } from '../../../server/types.ts';
 
@@ -61,8 +61,7 @@ function WorktreeHeading({
 
 export function WorktreesPage() {
   const { project } = useParams({ from: '/p/$project/worktrees' });
-  const search = useSearch({ from: '/p/$project/worktrees' });
-  const navigate = useNavigate({ from: '/p/$project/worktrees' });
+  const { search, onSearch } = useListSearch('/p/$project/worktrees');
   const query = useWorktrees(project, search);
   return (
     <ListView
@@ -70,7 +69,7 @@ export function WorktreesPage() {
       search={search}
       sortKeys={SORT_KEYS.worktrees}
       noun="worktrees"
-      onSearch={(patch) => navigate({ search: (prev) => patchSearch(prev, patch), replace: 'q' in patch })}
+      onSearch={onSearch}
       empty="No linked worktrees."
     >
       {(page) => (
