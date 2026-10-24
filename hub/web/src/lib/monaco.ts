@@ -1,7 +1,7 @@
 import { loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
-import { useSyncExternalStore } from 'react';
+import { useIsDark } from '@/lib/theme';
 
 // Import only from lazy chunks: this pulls in all of Monaco.
 
@@ -26,14 +26,8 @@ monaco.json.jsonDefaults.setModeConfiguration({ tokens: true });
 
 export { monaco };
 
-const media = window.matchMedia('(prefers-color-scheme: dark)');
-const subscribe = (notify: () => void) => {
-  media.addEventListener('change', notify);
-  return () => media.removeEventListener('change', notify);
-};
-
 export function useMonacoTheme(): 'vs' | 'vs-dark' {
-  return useSyncExternalStore(subscribe, () => media.matches) ? 'vs-dark' : 'vs';
+  return useIsDark() ? 'vs-dark' : 'vs';
 }
 
 export function languageFor(path: string): string {

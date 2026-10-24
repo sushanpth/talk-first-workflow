@@ -3,13 +3,11 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ApiError } from '@/lib/api';
+import { initTheme } from '@/lib/theme';
 import { router } from '@/router';
 import './styles.css';
 
-const media = window.matchMedia('(prefers-color-scheme: dark)');
-const applyTheme = () => document.documentElement.classList.toggle('dark', media.matches);
-media.addEventListener('change', applyTheme);
-applyTheme();
+initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {
