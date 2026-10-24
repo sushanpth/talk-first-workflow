@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import {
   branchChanges,
   branchCommit,
+  EMPTY_TEXT,
   fileAtCommit,
+  fileDiffOf,
   localBranches,
   mergeBase,
   worktreeEntries,
@@ -10,18 +12,18 @@ import {
 import type { BranchCompare, BranchList, FileDiff } from '../types.ts';
 import { fail, type RouteContext } from './context.ts';
 
-const EMPTY = { text: '', binary: false };
-
 export function compareRoutes(ctx: RouteContext): Hono {
   const routes = new Hono();
   const repo = async (id: string) => ctx.repoOf(await ctx.project(id));
 
-  // Only names `localBranches` lists reach git, so nothing typed into the URL can read as an option.
+  // Only exact names from `localBranches` reach git, so nothing typed into the URL can read as an option.
+  const commitOf = async (root: string, branches: string[], name: string): Promise<string> =>
+    (branches.includes(name) ? await branchCommit(root, name) : null) ?? fail(400, `unknown branch: ${name}`);
+
   const compare = async (root: string, base = '', head = ''): Promise<BranchCompare> => {
     const branches = await localBranches(root);
-    for (const name of [base, head]) if (!branches.includes(name)) fail(400, `unknown branch: ${name}`);
-    const baseCommit = (await branchCommit(root, base)) ?? fail(400, `unknown branch: ${base}`);
-    const headCommit = (await branchCommit(root, head)) ?? fail(400, `unknown branch: ${head}`);
+    const baseCommit = await commitOf(root, branches, base);
+    const headCommit = await commitOf(root, branches, head);
     const from =
       (await mergeBase(root, baseCommit, headCommit)) ?? fail(400, `${base} and ${head} share no history`);
     return { base, head, mergeBase: from, headCommit, files: await branchChanges(root, from, headCommit) };
@@ -51,14 +53,9 @@ export function compareRoutes(ctx: RouteContext): Hono {
     const path = c.req.query('path') ?? fail(400, 'path is required');
     const change = files.find((f) => f.path === path) ?? fail(404, 'file not changed');
     const before =
-      change.status === 'A' ? EMPTY : await fileAtCommit(root, from, change.oldPath ?? change.path);
-    const after = change.status === 'D' ? EMPTY : await fileAtCommit(root, headCommit, change.path);
-    const result: FileDiff = {
-      ...change,
-      original: before.text,
-      modified: after.text,
-      binary: before.binary || after.binary,
-    };
+      change.status === 'A' ? EMPTY_TEXT : await fileAtCommit(root, from, change.oldPath ?? change.path);
+    const after = change.status === 'D' ? EMPTY_TEXT : await fileAtCommit(root, headCommit, change.path);
+    const result: FileDiff = fileDiffOf(change, before, after);
     return c.json(result);
   });
 

@@ -1,7 +1,7 @@
 import { basename, join } from 'node:path';
 import { withRegularFile } from './paths.ts';
 import { run, runBuffer } from './run.ts';
-import type { ChangedFile, Worktree } from './types.ts';
+import type { ChangedFile, FileDiff, Worktree } from './types.ts';
 
 const git = (cwd: string, ...args: string[]) => run('git', args, cwd);
 
@@ -98,11 +98,11 @@ export async function resolveCommit(cwd: string, ref: string): Promise<string | 
 
 /** Local branch names (`refs/heads`), A to Z. */
 export async function localBranches(repo: string): Promise<string[]> {
-  const out = await git(repo, 'for-each-ref', '--format=%(refname)%00', 'refs/heads');
+  // Ref names can't hold control characters, so newline-separated output is unambiguous.
+  const out = await git(repo, 'for-each-ref', '--format=%(refname)', 'refs/heads');
   const prefix = 'refs/heads/';
   return out
-    .split('\0')
-    .map((line) => line.replace(/^\n/, ''))
+    .split('\n')
     .filter((ref) => ref.startsWith(prefix))
     .map((ref) => ref.slice(prefix.length));
 }
@@ -150,6 +150,13 @@ const MAX_FILE = 4 * 1024 * 1024;
 export interface Text {
   text: string;
   binary: boolean;
+}
+
+/** The missing side of an added or deleted file. */
+export const EMPTY_TEXT: Text = { text: '', binary: false };
+
+export function fileDiffOf(change: ChangedFile, before: Text, after: Text): FileDiff {
+  return { ...change, original: before.text, modified: after.text, binary: before.binary || after.binary };
 }
 
 function toText(buffer: Buffer): Text {

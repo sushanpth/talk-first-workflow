@@ -290,6 +290,9 @@ describe('API', () => {
       ['main', '--output=x'],
       ['-n', 'feature'],
       ['main', 'v1'],
+      ['main', 'main~1'],
+      ['HEAD', 'feature'],
+      ['refs/heads/main', 'feature'],
       ['main', 'nope'],
       ['main', ''],
     ]) {
