@@ -179,7 +179,7 @@ function openBrowser(url: string): Promise<boolean> {
   });
 }
 
-interface OpenRequest {
+export interface OpenRequest {
   query: Record<string, string>;
   register: string;
 }
@@ -211,14 +211,20 @@ function parseOpen(args: string[], cwd: string): OpenRequest {
   }
 }
 
-async function open(args: string[]): Promise<number> {
+/** Parses the arguments after `open`; kept free of side effects so tests can call it. */
+export function parseOpenArgs(args: string[], cwd: string): OpenRequest & { printUrl: boolean } {
   const printUrl = args.includes('--print-url');
   const baseAt = args.indexOf('--base');
   const base = baseAt >= 0 ? args[baseAt + 1] : undefined;
   if (baseAt >= 0 && !base) throw new CliError(`--base needs a commit.\n${USAGE}`);
   const positional = args.filter((a, i) => a !== '--print-url' && i !== baseAt && i !== baseAt + 1);
-  const request = parseOpen(positional, process.cwd());
+  const request = parseOpen(positional, cwd);
   if (base) request.query.base = base;
+  return { ...request, printUrl };
+}
+
+async function open(args: string[]): Promise<number> {
+  const { printUrl, ...request } = parseOpenArgs(args, process.cwd());
 
   const paths = hubPaths();
   const build = sourceHash();
