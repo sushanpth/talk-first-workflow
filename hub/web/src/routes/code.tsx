@@ -112,12 +112,6 @@ export function CodeFilePage() {
               </Link>
             ) : null;
           }}
-          // No raw-file endpoint to load repo images from.
-          renderImage={(src, alt) => (
-            <span className="text-muted-foreground italic" title={src}>
-              {alt || src}
-            </span>
-          )}
         />
       </div>
     );

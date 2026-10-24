@@ -39,8 +39,12 @@ function remarkWikiLinks() {
   return (tree: MdNode) => visit(tree);
 }
 
-const urlTransform = (url: string) =>
-  url.startsWith(WIKI_PREFIX) || codeRefOf(url) !== null ? url : defaultUrlTransform(url);
+const DATA_IMAGE_RE = /^data:image\//i;
+
+const urlTransform = (url: string, key: string) =>
+  url.startsWith(WIKI_PREFIX) || codeRefOf(url) !== null || (key === 'src' && DATA_IMAGE_RE.test(url))
+    ? url
+    : defaultUrlTransform(url);
 
 /** Links a code-ref candidate into the code viewer once the hub confirms it's a tracked file. */
 function CodeRefLink({
@@ -73,13 +77,9 @@ interface MarkdownProps {
   links?: Link[];
   /** Maps a relative href to an in-app link, or null to leave it alone. */
   renderLink?: (href: string, children: ReactNode) => ReactNode | null;
-  /** Replaces images with a relative src, or null to leave one alone. */
-  renderImage?: (src: string, alt: string) => ReactNode | null;
 }
 
-const isExternal = (url: string) => /^[a-z]+:/i.test(url) || url.startsWith('//');
-
-export function Markdown({ text, project, links = [], renderLink, renderImage }: MarkdownProps) {
+export function Markdown({ text, project, links = [], renderLink }: MarkdownProps) {
   // Code refs need the repo on disk; absolute paths count only when inside it.
   const repoRoot = useProject(project).data?.repo;
   return (
@@ -92,14 +92,17 @@ export function Markdown({ text, project, links = [], renderLink, renderImage }:
         }
         urlTransform={urlTransform}
         components={{
-          ...(renderImage && {
-            img: ({ node: _node, ...props }) => {
-              const { src, alt = '' } = props;
-              const replaced =
-                typeof src === 'string' && src && !isExternal(src) ? renderImage(src, alt) : null;
-              return replaced ?? <img {...props} alt={alt} />;
-            },
-          }),
+          // Remote images would let untrusted repos track the reader, and there's no endpoint for repo files.
+          img: ({ src, alt = '' }) => {
+            const url = typeof src === 'string' ? src : '';
+            return DATA_IMAGE_RE.test(url) ? (
+              <img src={url} alt={alt} />
+            ) : (
+              <span className="text-muted-foreground italic" title={url}>
+                {alt || url}
+              </span>
+            );
+          },
           a: ({ href = '', children }) => {
             if (href.startsWith(WIKI_PREFIX)) {
               const target = decodeURIComponent(href.slice(WIKI_PREFIX.length));
