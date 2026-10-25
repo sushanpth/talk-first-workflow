@@ -29,11 +29,12 @@ export function parseQuery(text: string): NoteQuery {
   return query;
 }
 
-/** Live notes matching the query; more terms in the title first, then newest. */
+/** Notes matching the query, live ones unless `deleted`; more terms in the title first, then newest. */
 export function searchNotes<T extends Note>(
   notes: readonly T[],
   text: string,
   folders: readonly Folder[],
+  { deleted = false } = {},
 ): T[] {
   const { terms, tags, folders: folderNames } = parseQuery(text);
   const folderIds = new Set(
@@ -41,7 +42,7 @@ export function searchNotes<T extends Note>(
   );
   const ranked: { note: T; inTitle: number }[] = [];
   for (const note of notes) {
-    if (note.deletedAt) continue;
+    if (Boolean(note.deletedAt) !== deleted) continue;
     if (folderNames.length > 0 && !folderIds.has(note.folderId)) continue;
     if (!tags.every((t) => note.tags.includes(t))) continue;
     const title = note.title.toLowerCase();

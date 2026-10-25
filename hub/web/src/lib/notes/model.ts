@@ -1,5 +1,5 @@
 // Pure helpers over note bodies: titles, tags, links, outline, date groups and link resolution.
-import type { Note, NoteLink, ResolvedLink } from './types.ts';
+import type { Folder, Note, NoteLink, ResolvedLink } from './types.ts';
 
 export const DEFAULT_TITLE = 'New note';
 const TITLE_MAX = 200;
@@ -244,4 +244,40 @@ export function toggleTask(body: string, offset: number): string {
   if (!m) return body;
   const at = offset + m[0].length - 2;
   return `${body.slice(0, at)}${m[1] === ' ' ? 'x' : ' '}${body.slice(at + 1)}`;
+}
+
+export interface FolderRow {
+  folder: Folder;
+  depth: number;
+  /** Names from the top, joined with ` / `. */
+  path: string;
+}
+
+/** Folders depth first, siblings by name; a folder whose parent is gone shows at the top. */
+export function folderTree(folders: readonly Folder[]): FolderRow[] {
+  const ids = new Set(folders.map((f) => f.id));
+  const byName = [...folders].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  );
+  const rows: FolderRow[] = [];
+  const seen = new Set<string>();
+  const walk = (parentId: string | undefined, depth: number, prefix: string) => {
+    for (const folder of byName) {
+      const parent = folder.parentId && ids.has(folder.parentId) ? folder.parentId : undefined;
+      if (parent !== parentId || seen.has(folder.id)) continue;
+      seen.add(folder.id);
+      const path = prefix ? `${prefix} / ${folder.name}` : folder.name;
+      rows.push({ folder, depth, path });
+      walk(folder.id, depth + 1, path);
+    }
+  };
+  walk(undefined, 0, '');
+  // Folders in a parent cycle never reach the top level above.
+  for (const folder of byName) {
+    if (seen.has(folder.id)) continue;
+    seen.add(folder.id);
+    rows.push({ folder, depth: 0, path: folder.name });
+    walk(folder.id, 1, folder.name);
+  }
+  return rows;
 }

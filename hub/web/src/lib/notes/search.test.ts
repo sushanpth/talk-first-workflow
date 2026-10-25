@@ -40,8 +40,9 @@ describe('searchNotes', () => {
     expect(ids('folder:nope')).toEqual([]);
   });
 
-  it('skips notes in Recently Deleted', () => {
+  it('skips notes in Recently Deleted unless asked for them', () => {
     expect(ids('agenda')).toEqual([]);
+    expect(searchNotes(notes, 'milk', folders, { deleted: true }).map((n) => n.id)).toEqual(['d']);
   });
 
   it('matches a quoted phrase as one term', () => {

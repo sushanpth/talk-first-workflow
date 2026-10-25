@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dailyTitle,
+  folderTree,
   groupByDate,
   linkedMentions,
   linkMention,
@@ -195,5 +196,22 @@ describe('noteSnippet', () => {
   it('shows the first line after the title, without markers', () => {
     expect(noteSnippet('# Groceries\n\n- [ ] **milk**\n- eggs')).toBe('milk');
     expect(noteSnippet('# Only a title')).toBe('');
+  });
+});
+
+describe('folderTree', () => {
+  it('lists folders depth first by name, with their paths', () => {
+    const tree = folderTree([
+      { id: 'w', name: 'work' },
+      { id: 's', name: 'Sub', parentId: 'w' },
+      { id: 'h', name: 'Home' },
+      { id: 'o', name: 'Orphan', parentId: 'gone' },
+    ]);
+    expect(tree.map(({ folder, depth, path }) => [folder.id, depth, path])).toEqual([
+      ['h', 0, 'Home'],
+      ['o', 0, 'Orphan'],
+      ['w', 0, 'work'],
+      ['s', 1, 'work / Sub'],
+    ]);
   });
 });
