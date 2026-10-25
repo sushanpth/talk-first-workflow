@@ -17,7 +17,16 @@ export const continueList: StateCommand = (target) => {
     const empty = range.head === line.to ? EMPTY_ITEM.exec(line.text) : null;
     if (empty) {
       if (empty[1]) return indentLess(target);
-      dispatch(state.update({ changes: { from: line.from, to: line.to }, userEvent: 'delete' }));
+      // A blank line ends the list; otherwise the next text continues the item above.
+      const above = line.number > 1 ? state.doc.line(line.number - 1).text : '';
+      const insert = above.trim() ? '\n' : '';
+      dispatch(
+        state.update({
+          changes: { from: line.from, to: line.to, insert },
+          selection: { anchor: line.from + insert.length },
+          userEvent: 'delete',
+        }),
+      );
       return true;
     }
   }

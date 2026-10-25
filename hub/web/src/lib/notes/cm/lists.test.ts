@@ -36,16 +36,21 @@ describe('Enter in a list', () => {
 });
 
 describe('Enter on an empty item', () => {
-  it('ends a bullet list without a blank line', () => {
-    expect(enter('- milk\n- |')).toBe('- milk\n|');
+  it('ends a bullet list with a blank line', () => {
+    expect(enter('- milk\n- |')).toBe('- milk\n\n|');
   });
 
   it('ends a checklist', () => {
-    expect(enter('- [ ] milk\n- [ ] |')).toBe('- [ ] milk\n|');
+    expect(enter('- [ ] milk\n- [ ] |')).toBe('- [ ] milk\n\n|');
   });
 
   it('ends a numbered list', () => {
-    expect(enter('1. milk\n2. |')).toBe('1. milk\n|');
+    expect(enter('1. milk\n2. |')).toBe('1. milk\n\n|');
+  });
+
+  it('only clears a lone item after a blank line or at the top', () => {
+    expect(enter('- |')).toBe('|');
+    expect(enter('text\n\n- |')).toBe('text\n\n|');
   });
 
   it('moves a nested empty item out one level', () => {
