@@ -8,9 +8,9 @@ import {
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view';
-import { findWikiLinks } from '../model.ts';
+import { findWikiLinks, TAG_RE } from '../model.ts';
 import { ATTACHMENT_SCHEME } from '../types.ts';
-import { inCode, TAG } from './syntax.ts';
+import { inCode } from './syntax.ts';
 import { toggleTask } from './tasks.ts';
 
 /** Dispatch to redraw widgets, e.g. once an attachment's blob URL is ready. */
@@ -245,7 +245,7 @@ function wikiLinksAndTags(
       if (textFrom < link.to - 2) out.push(mark('cm-wikilink').range(textFrom, link.to - 2));
       out.push(hidden.range(link.to - 2, link.to));
     }
-    for (const m of l.text.matchAll(TAG)) {
+    for (const m of l.text.matchAll(TAG_RE)) {
       const at = l.from + m.index;
       if (!inCode(state, at)) out.push(mark('cm-tag').range(at, at + m[0].length));
     }

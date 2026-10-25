@@ -58,15 +58,13 @@ export function findWikiLinks(text: string, offset = 0): NoteLink[] {
 
 export const parseLinks = (body: string): NoteLink[] => findWikiLinks(maskCode(body));
 
-const TAG_RE = /(^|[\s(])#([\p{L}\p{N}_/-]+)/gu;
+/** A `#tag` as Obsidian reads it: letters, digits, `_`, `-`, `/`, but not all digits (`#123` is an issue ref). */
+export const TAG_RE = /(?<=^|[\s(])#(?!\p{N}+(?![\p{L}\p{N}_/-]))([\p{L}\p{N}_/-]+)/gu;
 
-/** `#tags` in prose, lowercase without `#`; all-digit ones like `#123` are issue refs, not tags. */
+/** `#tags` in prose, lowercase without `#`. */
 export function parseTags(body: string): string[] {
   const tags = new Set<string>();
-  for (const m of maskProse(body).matchAll(TAG_RE)) {
-    const tag = (m[2] ?? '').toLowerCase();
-    if (/[^\p{N}]/u.test(tag)) tags.add(tag);
-  }
+  for (const m of maskProse(body).matchAll(TAG_RE)) tags.add((m[1] ?? '').toLowerCase());
   return [...tags];
 }
 

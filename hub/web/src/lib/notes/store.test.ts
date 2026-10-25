@@ -61,6 +61,27 @@ describe('notes', () => {
     expect((await db.attachments.toArray()).map((a) => a.id)).toEqual([kept]);
   });
 
+  it('keeps a note exactly 30 days and purges it 1 ms later', async () => {
+    expect(await store.purge()).toBe(0);
+    const note = await store.create({ body: 'a' });
+    await store.remove(note.id);
+    clock += KEEP_DELETED_DAYS * DAY;
+    expect(await store.purge()).toBe(0);
+    expect(await deletedIds()).toEqual([note.id]);
+    clock += 1;
+    expect(await store.purge()).toBe(1);
+    expect(await db.notes.count()).toBe(0);
+  });
+
+  it('restores a note into its folder when the folder still exists', async () => {
+    const work = await store.createFolder('Work');
+    const note = await store.create({ folderId: work.id });
+    await store.remove(note.id);
+    await store.restore(note.id);
+    expect(await db.notes.get(note.id)).toMatchObject({ folderId: work.id });
+    expect(await liveIds()).toEqual([note.id]);
+  });
+
   it('deletes a note for good, with its attachments', async () => {
     const note = await store.create({ body: 'a' });
     await store.addAttachment(note.id, new Blob(['x']), 'a.png');
@@ -103,6 +124,21 @@ describe('folders', () => {
     expect((await db.folders.toArray()).map((f) => f.id)).toEqual([home.id]);
     expect((await deletedIds()).sort()).toEqual([a.id, b.id].sort());
     expect(await liveIds()).toEqual([c.id]);
+  });
+
+  it('deletes a three-level folder chain, keeping the deletedAt of notes already deleted', async () => {
+    const a = await store.createFolder('A');
+    const b = await store.createFolder('B', a.id);
+    const c = await store.createFolder('C', b.id);
+    const early = await store.create({ folderId: b.id });
+    await store.remove(early.id);
+    const firstDeletedAt = clock;
+    clock += 5 * DAY;
+    const deep = await store.create({ folderId: c.id });
+    await store.deleteFolder(a.id);
+    expect(await db.folders.count()).toBe(0);
+    expect((await db.notes.get(early.id))?.deletedAt).toBe(firstDeletedAt);
+    expect((await db.notes.get(deep.id))?.deletedAt).toBe(clock);
   });
 
   it('restores a note whose folder is gone outside any folder', async () => {

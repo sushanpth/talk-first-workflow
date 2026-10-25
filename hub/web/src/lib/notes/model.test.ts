@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dailyTitle,
+  daysLeft,
   findWikiLinks,
   folderTree,
   groupByDate,
@@ -12,6 +13,7 @@ import {
   parseLinks,
   parseTags,
   resolveLink,
+  TAG_RE,
   toggleTask,
   unlinkedMentions,
 } from './model.ts';
@@ -39,6 +41,20 @@ describe('noteTitle', () => {
   it('falls back to "New note" for a blank body', () => {
     expect(noteTitle('')).toBe('New note');
     expect(noteTitle('  \n#  \n')).toBe('New note');
+  });
+});
+
+describe('TAG_RE', () => {
+  // The editor highlights with it and parseTags indexes with it, so both agree.
+  it('follows Obsidian: digits allowed anywhere, but not all digits', () => {
+    expect('#todo a#b # h #1 #123 #1a #2026-q4 (#x/y-z) #_x'.match(TAG_RE)).toEqual([
+      '#todo',
+      '#1a',
+      '#2026-q4',
+      '#x/y-z',
+      '#_x',
+    ]);
+    expect(parseTags('#1a and #123')).toEqual(['1a']);
   });
 });
 
@@ -128,6 +144,44 @@ describe('groupByDate', () => {
   });
 });
 
+describe('groupByDate edges', () => {
+  const now = new Date(2026, 9, 25, 15).getTime();
+  const labelOf = (updatedAt: number) => groupByDate([note({ id: 'n', updatedAt })], now)[0]?.label;
+  const at = (d: number, h = 0, min = 0) => new Date(2026, 9, d, h, min).getTime();
+
+  it('splits Today and Yesterday at local midnight', () => {
+    expect(labelOf(at(25))).toBe('Today');
+    expect(labelOf(at(25) - 1)).toBe('Yesterday');
+    expect(labelOf(at(24))).toBe('Yesterday');
+    expect(labelOf(at(24) - 1)).toBe('Previous 7 Days');
+  });
+
+  it('keeps 7 days back at 00:00 in Previous 7 Days, and moves older ones on', () => {
+    expect(labelOf(at(18))).toBe('Previous 7 Days');
+    expect(labelOf(at(18) - 1)).toBe('Previous 30 Days');
+    expect(labelOf(at(17, 12))).toBe('Previous 30 Days');
+    expect(labelOf(new Date(2026, 8, 25).getTime())).toBe('Previous 30 Days');
+    expect(labelOf(new Date(2026, 8, 24, 12).getTime())).toBe('September 2026');
+  });
+});
+
+describe('daysLeft', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const deletedAt = Date.UTC(2026, 9, 1);
+
+  it('counts whole days, rounding a partial day up', () => {
+    expect(daysLeft(deletedAt, deletedAt, 30)).toBe(30);
+    expect(daysLeft(deletedAt, deletedAt + 1, 30)).toBe(30);
+    expect(daysLeft(deletedAt, deletedAt + DAY, 30)).toBe(29);
+    expect(daysLeft(deletedAt, deletedAt + 29 * DAY + 1, 30)).toBe(1);
+  });
+
+  it('gives 0 at and after the deadline', () => {
+    expect(daysLeft(deletedAt, deletedAt + 30 * DAY, 30)).toBe(0);
+    expect(daysLeft(deletedAt, deletedAt + 45 * DAY, 30)).toBe(0);
+  });
+});
+
 describe('dailyTitle', () => {
   it('formats the local date as YYYY-MM-DD', () => {
     expect(dailyTitle(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
@@ -163,6 +217,21 @@ describe('resolveLink', () => {
       target: 'roadmap',
     });
     expect(resolveLink('nothing', ctx)).toEqual({ kind: 'unresolved', target: 'nothing' });
+  });
+
+  it('skips notes in Recently Deleted', () => {
+    const withDeleted = [...notes, note({ id: 'd', title: 'Plans', updatedAt: 9, deletedAt: 10 })];
+    expect(resolveLink('Plans', { notes: withDeleted })).toEqual({ kind: 'unresolved', target: 'Plans' });
+    const newerDeleted = [...notes, note({ id: 'd', title: 'Groceries', updatedAt: 9, deletedAt: 10 })];
+    expect(resolveLink('Groceries', { notes: newerDeleted })).toEqual({ kind: 'note', noteId: 'b' });
+  });
+
+  it('trims spaces around the target', () => {
+    expect(resolveLink('  Groceries ', { notes })).toEqual({ kind: 'note', noteId: 'b' });
+    expect(resolveLink(' roadmap ', { notes, project: 'p', memoryNames: ['Roadmap'] })).toMatchObject({
+      kind: 'memory',
+      name: 'Roadmap',
+    });
   });
 });
 

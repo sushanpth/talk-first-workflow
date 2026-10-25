@@ -3,9 +3,6 @@ import type { EditorState } from '@codemirror/state';
 import { findWikiLinks } from '../model.ts';
 import type { NoteLink } from '../types.ts';
 
-// Same shape as Obsidian tags: must start with a letter or underscore, so `#1` and `# heading` are not tags.
-export const TAG = /(?<=^|[\s(])#[\p{L}_][\p{L}\p{N}_/-]*/gu;
-
 const CODE = new Set(['InlineCode', 'FencedCode', 'CodeBlock', 'CodeText']);
 
 /** True inside inline code or a code block, where links and tags are plain text. */

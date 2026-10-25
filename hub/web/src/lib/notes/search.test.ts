@@ -40,6 +40,18 @@ describe('searchNotes', () => {
     expect(ids('folder:nope')).toEqual([]);
   });
 
+  it('needs every tag filter, and combines tags with free text', () => {
+    expect(ids('tag:home tag:work')).toEqual(['c']);
+    expect(ids('#home #nope')).toEqual([]);
+    expect(ids('tag:home bread')).toEqual(['a']);
+    expect(ids('tag:home prices')).toEqual(['c']);
+  });
+
+  it('returns every live note, newest first, for an empty query', () => {
+    expect(ids('')).toEqual(['b', 'a', 'c']);
+    expect(ids('   ')).toEqual(['b', 'a', 'c']);
+  });
+
   it('skips notes in Recently Deleted unless asked for them', () => {
     expect(ids('agenda')).toEqual([]);
     expect(searchNotes(notes, 'milk', folders, { deleted: true }).map((n) => n.id)).toEqual(['d']);
