@@ -19,10 +19,10 @@ import { useNoteActions } from '@/components/notes/actions';
 import NoteEditor from '@/components/notes/editor';
 import { useAttachmentUrls, useMemoryNames, useNotesData } from '@/components/notes/hooks';
 import { NoteList } from '@/components/notes/note-list';
-import { NotePanel } from '@/components/notes/note-panel';
+import { NoteBacklinks, NoteOutline } from '@/components/notes/note-panel';
 import { QuickSwitcher } from '@/components/notes/quick-switcher';
 import { useNotesShortcuts } from '@/components/notes/shortcuts';
-import { NotesSidebar } from '@/components/notes/sidebar';
+import { NotesRail, NotesSidebar } from '@/components/notes/sidebar';
 import { DELETED_VIEW } from '@/components/notes/view';
 import { Button } from '@/components/ui/button';
 import { useAllProjects } from '@/lib/api';
@@ -204,7 +204,10 @@ export function NotesPage() {
   });
 
   // A narrow screen shows one column; picking a folder returns to the list.
-  useEffect(() => setShowFolders(false), [view.folder, view.tag]);
+  useEffect(() => {
+    // Beside the list the sidebar stays open; below lg it covers the list, so picking closes it.
+    if (!window.matchMedia('(min-width: 64rem)').matches) setShowFolders(false);
+  }, [view.folder, view.tag]);
 
   const listTitle = inTrash
     ? 'Recently Deleted'
@@ -265,7 +268,7 @@ export function NotesPage() {
       <div className="flex h-[calc(100dvh-5rem)] min-h-96 overflow-hidden rounded-md border">
         <aside
           className={cn(
-            'w-full shrink-0 overflow-auto border-r md:w-72 lg:block lg:w-52',
+            'w-full shrink-0 overflow-auto border-r md:w-64 lg:w-48',
             showFolders ? 'block' : 'hidden',
             id && 'max-md:hidden',
           )}
@@ -281,13 +284,19 @@ export function NotesPage() {
             onNewFolder={(parentId) => void newFolder(parentId)}
             onRenameFolder={(fid, name) => void store.renameFolder(fid, name)}
             onDeleteFolder={(fid, name) => void deleteFolder(fid, name)}
+            onCollapse={() => setShowFolders(false)}
           />
         </aside>
+        {!showFolders && (
+          <aside className="hidden w-12 shrink-0 border-r lg:block">
+            <NotesRail view={view} onDaily={openDaily} onExpand={() => setShowFolders(true)} />
+          </aside>
+        )}
 
         <section
           aria-label="Notes"
           className={cn(
-            'w-full shrink-0 flex-col border-r md:w-72 lg:flex',
+            'w-full shrink-0 flex-col border-r md:w-64 lg:flex',
             showFolders ? 'hidden' : 'flex',
             id && 'max-md:hidden',
           )}
@@ -445,12 +454,18 @@ export function NotesPage() {
 
           {note && editorProps ? (
             <div className="flex min-h-0 flex-1">
-              <div ref={bodyRef} className="min-w-0 flex-1 overflow-auto">
+              <div ref={bodyRef} className="flex min-w-0 flex-1 flex-col overflow-auto">
                 <p className="px-4 pt-2 text-center text-xs text-muted-foreground">
                   {isDeleted
                     ? `In Recently Deleted · ${daysLeft(note.deletedAt ?? now, now, KEEP_DELETED_DAYS)} days left`
                     : `Edited ${new Date(note.updatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
                 </p>
+                <NoteBacklinks
+                  key={note.id}
+                  linked={linked}
+                  unlinked={unlinked}
+                  onLinkMention={(other) => void store.save(other.id, linkMention(other.body, note.title))}
+                />
                 {showReading ? (
                   <div className="px-6 py-4">
                     <Markdown
@@ -462,23 +477,12 @@ export function NotesPage() {
                     />
                   </div>
                 ) : (
-                  <div className="h-[calc(100%-1.75rem)]">
+                  <div className="min-h-0 flex-1">
                     <NoteEditor key={note.id} {...editorProps} />
                   </div>
                 )}
               </div>
-              <aside
-                aria-label="Outline and backlinks"
-                className="hidden w-60 shrink-0 overflow-auto border-l xl:block"
-              >
-                <NotePanel
-                  headings={headings}
-                  linked={linked}
-                  unlinked={unlinked}
-                  onHeading={onHeading}
-                  onLinkMention={(other) => void store.save(other.id, linkMention(other.body, note.title))}
-                />
-              </aside>
+              <NoteOutline headings={headings} onHeading={onHeading} />
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">

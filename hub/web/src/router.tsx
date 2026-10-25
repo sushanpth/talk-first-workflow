@@ -48,6 +48,7 @@ function RootLayout() {
           >
             Notes
           </Link>
+          {onNotes && <ProjectSwitcher />}
           {project && (
             <>
               <span aria-hidden className="flex items-center text-muted-foreground">

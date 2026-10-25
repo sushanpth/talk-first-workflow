@@ -67,8 +67,8 @@ export const useAllProjects = () =>
     queryFn: () => get<ProjectPage>(`/projects?limit=${LIST_LIMIT_MAX}`),
   });
 
-export const useProject = (project: string) =>
-  useQuery({ queryKey: ['project', project], queryFn: () => get<Project>(p(project)) });
+export const useProject = (project: string, enabled = true) =>
+  useQuery({ queryKey: ['project', project], queryFn: () => get<Project>(p(project)), enabled });
 
 export const usePlans = (project: string, search: ListSearch<SortKey<'plans'>>) =>
   useQuery({

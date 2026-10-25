@@ -1,5 +1,16 @@
 import { Link } from '@tanstack/react-router';
-import { CalendarDays, Folder, FolderPlus, Hash, Notebook, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  CalendarDays,
+  Folder,
+  FolderPlus,
+  Hash,
+  Notebook,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import type { FolderRow } from '@/lib/notes/model';
 import { cn } from '@/lib/utils';
@@ -58,6 +69,7 @@ export function NotesSidebar({
   onNewFolder,
   onRenameFolder,
   onDeleteFolder,
+  onCollapse,
 }: {
   view: NotesSearch;
   folders: readonly FolderRow[];
@@ -69,10 +81,16 @@ export function NotesSidebar({
   onNewFolder: (parentId?: string) => void;
   onRenameFolder: (id: string, name: string) => void;
   onDeleteFolder: (id: string, name: string) => void;
+  onCollapse: () => void;
 }) {
   const all = !view.folder && !view.tag;
   return (
     <nav aria-label="Notes folders" className="p-2">
+      <div className="mb-1 flex justify-end">
+        <button type="button" onClick={onCollapse} className={iconButton} aria-label="Collapse sidebar">
+          <PanelLeftClose className="size-4" aria-hidden />
+        </button>
+      </div>
       <Link to="/notes" search={{}} className={rowClass(all)}>
         <Notebook className="size-4 shrink-0" aria-hidden />
         All Notes
@@ -176,6 +194,83 @@ export function NotesSidebar({
           <Count n={counts.deleted} />
         </Link>
       </div>
+    </nav>
+  );
+}
+
+const railItem = (active: boolean) =>
+  cn(
+    'flex size-8 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground',
+    active && 'bg-accent text-foreground',
+  );
+
+/** The collapsed sidebar: icons only; folders and tags open the full sidebar. */
+export function NotesRail({
+  view,
+  onDaily,
+  onExpand,
+}: {
+  view: NotesSearch;
+  onDaily: () => void;
+  onExpand: () => void;
+}) {
+  const inTrash = view.folder === DELETED_VIEW;
+  return (
+    <nav aria-label="Notes folders" className="flex h-full flex-col items-center gap-1 py-2">
+      <button
+        type="button"
+        onClick={onExpand}
+        className={railItem(false)}
+        aria-label="Expand sidebar"
+        title="Expand sidebar"
+      >
+        <PanelLeftOpen className="size-4" aria-hidden />
+      </button>
+      <Link
+        to="/notes"
+        search={{}}
+        className={railItem(!view.folder && !view.tag)}
+        aria-label="All Notes"
+        title="All Notes"
+      >
+        <Notebook className="size-4" aria-hidden />
+      </Link>
+      <button
+        type="button"
+        onClick={onDaily}
+        className={railItem(false)}
+        aria-label="Daily note"
+        title="Daily note"
+      >
+        <CalendarDays className="size-4" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onExpand}
+        className={railItem(!!view.folder && !inTrash)}
+        aria-label="Folders"
+        title="Folders"
+      >
+        <Folder className="size-4" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onExpand}
+        className={railItem(!!view.tag)}
+        aria-label="Tags"
+        title="Tags"
+      >
+        <Hash className="size-4" aria-hidden />
+      </button>
+      <Link
+        to="/notes"
+        search={{ folder: DELETED_VIEW }}
+        className={cn(railItem(inTrash), 'mt-auto')}
+        aria-label="Recently Deleted"
+        title="Recently Deleted"
+      >
+        <Trash2 className="size-4" aria-hidden />
+      </Link>
     </nav>
   );
 }
