@@ -52,7 +52,7 @@ def main() -> int:
     context = (
         "<talk-first-workflow>\n"
         + skill_body("talk-first")
-        + f"\n\n## This session\n\n- Memory tool: `{tool}` (subcommands: status, init, skip, check, similar, search, projects, dump).\n"
+        + f"\n\n## This session\n\n- Memory tool: `{tool}` (subcommands: status, init, skip, check, search, projects, dump).\n"
         + f"- {status_line}\n"
         + f"- Hub: `{hub} open [plan <path> | note <path> | doc <repo> <path> | worktree <path> --base <sha> | project <repo>]`"
         " opens plans, memory, docs and worktree diffs in the user's browser (`stop` stops it). Needs Node 22.18+"

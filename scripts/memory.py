@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Memory tool for the talk-first workflow: setup, note checks, similarity, search and JSON for the hub."""
+"""Memory tool for the talk-first workflow: setup, note checks, search and JSON for the hub."""
 import argparse
 import json
 import math
@@ -298,8 +298,8 @@ def note_terms(path: Path) -> tuple[dict, list[str], set[str]]:
     return meta, tokens(header) * 2 + tokens(body), set(LINK_RE.findall(body))
 
 
-def rank(query_terms: list[str], directory: Path, exclude: Path | None = None, limit: int = 5) -> list[dict]:
-    notes = [p for p in note_files(directory) if exclude is None or p.resolve() != exclude.resolve()]
+def rank(query_terms: list[str], directory: Path, limit: int = 5) -> list[dict]:
+    notes = note_files(directory)
     if not notes or not query_terms:
         return []
     parsed = {p: note_terms(p) for p in notes}
@@ -327,13 +327,6 @@ def rank(query_terms: list[str], directory: Path, exclude: Path | None = None, l
             })
     scored.sort(key=lambda item: item["score"], reverse=True)
     return scored[:limit]
-
-
-def similar(text: str, directory: Path, exclude: Path | None = None, limit: int = 5) -> list[dict]:
-    meta, body = parse_note(text)
-    meta = meta or {}
-    header = f"{meta.get('name', '')} {meta.get('description', '')}".replace("-", " ")
-    return rank(tokens(header) * 2 + tokens(body), directory, exclude, limit)
 
 
 def notes_by_name(directory: Path) -> dict[str, Path]:
@@ -458,10 +451,6 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("skip", help="never ask to set up memory for this project")
     p_check = sub.add_parser("check", help="check a note; reads stdin when FILE is '-'")
     p_check.add_argument("file")
-    p_similar = sub.add_parser("similar", help="existing notes most similar to a draft; reads stdin when FILE is '-'")
-    p_similar.add_argument("file")
-    p_similar.add_argument("--dir")
-    p_similar.add_argument("--limit", type=int, default=5)
     p_search = sub.add_parser("search", help="find notes for a query and follow their links one hop")
     p_search.add_argument("query", nargs="+")
     p_search.add_argument("--dir")
@@ -484,10 +473,6 @@ def main(argv: list[str] | None = None) -> int:
         errors = check_text(text)
         print(json.dumps({"ok": not errors, "errors": errors}, indent=2))
         return 0 if not errors else 1
-    elif args.command == "similar":
-        exclude = None if args.file == "-" else Path(args.file)
-        text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text()
-        result = similar(text, resolve_dir(args), exclude, args.limit)
     elif args.command == "projects":
         result = projects()
     elif args.command == "dump":
