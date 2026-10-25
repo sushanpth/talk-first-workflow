@@ -148,7 +148,7 @@ describe('token, cookie and Host checks', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('id="root"');
     expect(res.headers.get('content-security-policy')).toContain("default-src 'self'");
-    expect(res.headers.get('content-security-policy')).toContain("img-src 'self' data:;");
+    expect(res.headers.get('content-security-policy')).toContain("img-src 'self' data: blob:;");
     expect((await get('/assets/app.js')).headers.get('content-type')).toContain('javascript');
     expect((await get('/assets/missing.js')).status).toBe(404);
   });

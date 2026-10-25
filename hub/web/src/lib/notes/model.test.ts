@@ -1,0 +1,361 @@
+import { describe, expect, it } from 'vitest';
+import {
+  dailyTitle,
+  daysLeft,
+  findWikiLinks,
+  folderTree,
+  groupByDate,
+  linkedMentions,
+  linkMention,
+  linkTargets,
+  noteSnippet,
+  noteTitle,
+  outline,
+  parseLinks,
+  parseTags,
+  resolveLink,
+  selectNotes,
+  TAG_RE,
+  toggleTask,
+  unlinkedMentions,
+} from './model.ts';
+import { NO_FOLDER, type Note } from './types.ts';
+
+const note = (over: Partial<Note> & { id: string }): Note => ({
+  title: 'New note',
+  body: '',
+  folderId: NO_FOLDER,
+  tags: [],
+  pinned: false,
+  createdAt: 0,
+  updatedAt: 0,
+  ...over,
+});
+
+describe('noteTitle', () => {
+  it('uses the first non-empty line without markdown markers', () => {
+    expect(noteTitle('\n\n# Groceries\nmilk')).toBe('Groceries');
+    expect(noteTitle('- [ ] **buy** _milk_')).toBe('buy milk');
+    expect(noteTitle('> a [link](https://example.com) and `code`')).toBe('a link and code');
+    expect(noteTitle('see [[Groceries|the list]] and [[Plans]]')).toBe('see the list and Plans');
+  });
+
+  it('falls back to "New note" for a blank body', () => {
+    expect(noteTitle('')).toBe('New note');
+    expect(noteTitle('  \n#  \n')).toBe('New note');
+  });
+});
+
+describe('TAG_RE', () => {
+  // The editor highlights with it and parseTags indexes with it, so both agree.
+  it('follows Obsidian: digits allowed anywhere, but not all digits', () => {
+    expect('#todo a#b # h #1 #123 #1a #2026-q4 (#x/y-z) #_x'.match(TAG_RE)).toEqual([
+      '#todo',
+      '#1a',
+      '#2026-q4',
+      '#x/y-z',
+      '#_x',
+    ]);
+    expect(parseTags('#1a and #123')).toEqual(['1a']);
+  });
+});
+
+describe('parseTags', () => {
+  it('finds lowercase tags without the hash, once each', () => {
+    expect(parseTags('#Work notes #home/kitchen and #work again')).toEqual(['work', 'home/kitchen']);
+  });
+
+  it('skips headings, numbers, code, links and URLs', () => {
+    const body = [
+      '# Heading',
+      'issue #123 is not a tag',
+      '`#inline` code',
+      '```',
+      '#fenced',
+      '```',
+      '[see #this](https://example.com/#anchor) and [[note#heading]]',
+      'real #tag',
+    ].join('\n');
+    expect(parseTags(body)).toEqual(['tag']);
+  });
+});
+
+describe('parseLinks', () => {
+  it('reads targets, aliases and headings with their offsets', () => {
+    const body = 'go to [[Groceries]] or [[Plans#Next week|next]]';
+    expect(parseLinks(body)).toEqual([
+      { target: 'Groceries', from: 6, to: 19 },
+      { target: 'Plans', heading: 'Next week', alias: 'next', from: 23, to: body.length },
+    ]);
+  });
+
+  it('ignores links in code', () => {
+    expect(parseLinks('`[[a]]`\n```\n[[b]]\n```\n[[c]]').map((l) => l.target)).toEqual(['c']);
+  });
+});
+
+describe('findWikiLinks', () => {
+  it('reads target, heading and alias with shifted offsets', () => {
+    expect(findWikiLinks('see [[Groceries#Dairy|milk]] now', 10)).toEqual([
+      { target: 'Groceries', heading: 'Dairy', alias: 'milk', from: 14, to: 38 },
+    ]);
+  });
+
+  it('skips empty links', () => {
+    expect(findWikiLinks('[[]] [[ ]] [[#h]]')).toEqual([]);
+  });
+});
+
+describe('outline', () => {
+  it('lists headings outside code fences with their levels', () => {
+    const body = '# Title\ntext\n## Part **one**\n```\n# not a heading\n```\n### Deep';
+    expect(outline(body).map(({ level, text }) => ({ level, text }))).toEqual([
+      { level: 1, text: 'Title' },
+      { level: 2, text: 'Part one' },
+      { level: 3, text: 'Deep' },
+    ]);
+  });
+});
+
+describe('groupByDate', () => {
+  // Saturday 25 October 2026, 15:00 local time.
+  const now = new Date(2026, 9, 25, 15).getTime();
+  const at = (y: number, m: number, d: number, h = 12) => new Date(y, m, d, h).getTime();
+
+  it('puts pinned notes first, then recent days, then months', () => {
+    const notes = [
+      note({ id: 'old', updatedAt: at(2026, 7, 2) }),
+      note({ id: 'today', updatedAt: at(2026, 9, 25, 9) }),
+      note({ id: 'pin', updatedAt: at(2025, 0, 1), pinned: true }),
+      note({ id: 'yesterday', updatedAt: at(2026, 9, 24, 23) }),
+      note({ id: 'week', updatedAt: at(2026, 9, 19) }),
+      note({ id: 'month', updatedAt: at(2026, 9, 1) }),
+      note({ id: 'older', updatedAt: at(2025, 11, 31) }),
+      note({ id: 'today2', updatedAt: at(2026, 9, 25, 10) }),
+    ];
+    const groups = groupByDate(notes, now).map((g) => [g.label, g.notes.map((n) => n.id)]);
+    expect(groups).toEqual([
+      ['Pinned', ['pin']],
+      ['Today', ['today2', 'today']],
+      ['Yesterday', ['yesterday']],
+      ['Previous 7 Days', ['week']],
+      ['Previous 30 Days', ['month']],
+      ['August 2026', ['old']],
+      ['December 2025', ['older']],
+    ]);
+  });
+});
+
+describe('groupByDate edges', () => {
+  const now = new Date(2026, 9, 25, 15).getTime();
+  const labelOf = (updatedAt: number) => groupByDate([note({ id: 'n', updatedAt })], now)[0]?.label;
+  const at = (d: number, h = 0, min = 0) => new Date(2026, 9, d, h, min).getTime();
+
+  it('splits Today and Yesterday at local midnight', () => {
+    expect(labelOf(at(25))).toBe('Today');
+    expect(labelOf(at(25) - 1)).toBe('Yesterday');
+    expect(labelOf(at(24))).toBe('Yesterday');
+    expect(labelOf(at(24) - 1)).toBe('Previous 7 Days');
+  });
+
+  it('keeps 7 days back at 00:00 in Previous 7 Days, and moves older ones on', () => {
+    expect(labelOf(at(18))).toBe('Previous 7 Days');
+    expect(labelOf(at(18) - 1)).toBe('Previous 30 Days');
+    expect(labelOf(at(17, 12))).toBe('Previous 30 Days');
+    expect(labelOf(new Date(2026, 8, 25).getTime())).toBe('Previous 30 Days');
+    expect(labelOf(new Date(2026, 8, 24, 12).getTime())).toBe('September 2026');
+  });
+});
+
+describe('daysLeft', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const deletedAt = Date.UTC(2026, 9, 1);
+
+  it('counts whole days, rounding a partial day up', () => {
+    expect(daysLeft(deletedAt, deletedAt, 30)).toBe(30);
+    expect(daysLeft(deletedAt, deletedAt + 1, 30)).toBe(30);
+    expect(daysLeft(deletedAt, deletedAt + DAY, 30)).toBe(29);
+    expect(daysLeft(deletedAt, deletedAt + 29 * DAY + 1, 30)).toBe(1);
+  });
+
+  it('gives 0 at and after the deadline', () => {
+    expect(daysLeft(deletedAt, deletedAt + 30 * DAY, 30)).toBe(0);
+    expect(daysLeft(deletedAt, deletedAt + 45 * DAY, 30)).toBe(0);
+  });
+});
+
+describe('dailyTitle', () => {
+  it('formats the local date as YYYY-MM-DD', () => {
+    expect(dailyTitle(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+  });
+});
+
+describe('resolveLink', () => {
+  const notes = [
+    note({ id: 'a', title: 'Groceries', updatedAt: 1 }),
+    note({ id: 'b', title: 'groceries', updatedAt: 5 }),
+    note({ id: 'c', title: 'hub-local-web-ui' }),
+  ];
+
+  it('matches a note title case-insensitively, newest first', () => {
+    expect(resolveLink('GROCERIES', { notes })).toEqual({ kind: 'note', noteId: 'b' });
+  });
+
+  it('prefers a note over a memory note of the same name', () => {
+    expect(
+      resolveLink('hub-local-web-ui', { notes, project: 'p', memoryNames: ['hub-local-web-ui'] }),
+    ).toEqual({ kind: 'note', noteId: 'c' });
+  });
+
+  it("falls back to the project's memory notes, then unresolved", () => {
+    const ctx = { notes, project: 'example-project', memoryNames: ['Roadmap'] };
+    expect(resolveLink('roadmap', ctx)).toEqual({
+      kind: 'memory',
+      project: 'example-project',
+      name: 'Roadmap',
+    });
+    expect(resolveLink('roadmap', { notes, memoryNames: ['Roadmap'] })).toEqual({
+      kind: 'unresolved',
+      target: 'roadmap',
+    });
+    expect(resolveLink('nothing', ctx)).toEqual({ kind: 'unresolved', target: 'nothing' });
+  });
+
+  it('skips notes in Recently Deleted', () => {
+    const withDeleted = [...notes, note({ id: 'd', title: 'Plans', updatedAt: 9, deletedAt: 10 })];
+    expect(resolveLink('Plans', { notes: withDeleted })).toEqual({ kind: 'unresolved', target: 'Plans' });
+    const newerDeleted = [...notes, note({ id: 'd', title: 'Groceries', updatedAt: 9, deletedAt: 10 })];
+    expect(resolveLink('Groceries', { notes: newerDeleted })).toEqual({ kind: 'note', noteId: 'b' });
+  });
+
+  it('trims spaces around the target', () => {
+    expect(resolveLink('  Groceries ', { notes })).toEqual({ kind: 'note', noteId: 'b' });
+    expect(resolveLink(' roadmap ', { notes, project: 'p', memoryNames: ['Roadmap'] })).toMatchObject({
+      kind: 'memory',
+      name: 'Roadmap',
+    });
+  });
+});
+
+describe('linkTargets', () => {
+  it("offers other notes' titles once each, then memory notes, never the note itself", () => {
+    const live = [
+      { id: 'a', title: 'Groceries' },
+      { id: 'b', title: 'Plans' },
+      { id: 'c', title: 'Plans' },
+    ];
+    expect(linkTargets(live, 'a', ['roadmap'])).toEqual([
+      { label: 'Plans', kind: 'note' },
+      { label: 'roadmap', kind: 'memory' },
+    ]);
+  });
+});
+
+describe('mentions', () => {
+  const target = note({ id: 't', title: 'Groceries', body: '# Groceries' });
+  const notes = [
+    target,
+    note({ id: 'linked', title: 'Plan', body: 'buy from [[groceries|the list]]' }),
+    note({ id: 'plain', title: 'Diary', body: 'did the groceries today' }),
+    note({ id: 'deleted', body: '[[Groceries]]', deletedAt: 1 }),
+    note({ id: 'none', body: 'nothing here' }),
+  ];
+
+  it('finds live notes that link to the note', () => {
+    expect(linkedMentions(target, notes).map((n) => n.id)).toEqual(['linked']);
+  });
+
+  it('finds live notes that mention the title without linking it', () => {
+    const found = unlinkedMentions(target, notes);
+    expect(found.map((m) => m.note.id)).toEqual(['plain']);
+    expect(found[0]?.snippet).toContain('groceries');
+  });
+
+  it('links the first plain mention', () => {
+    expect(linkMention('did the groceries, groceries', 'Groceries')).toBe('did the [[groceries]], groceries');
+    expect(linkMention('[[Groceries]] only', 'Groceries')).toBe('[[Groceries]] only');
+  });
+});
+
+describe('toggleTask', () => {
+  it('ticks and unticks the checkbox of the list item at the offset', () => {
+    const body = 'list\n- [ ] milk\n  - [x] eggs';
+    const ticked = toggleTask(body, 5);
+    expect(ticked).toBe('list\n- [x] milk\n  - [x] eggs');
+    expect(toggleTask(ticked, body.indexOf('  -'))).toBe('list\n- [x] milk\n  - [ ] eggs');
+  });
+
+  it('leaves the body alone when there is no checkbox there', () => {
+    expect(toggleTask('- milk', 0)).toBe('- milk');
+  });
+});
+
+describe('noteSnippet', () => {
+  it('shows the first line after the title, without markers', () => {
+    expect(noteSnippet('# Groceries\n\n- [ ] **milk**\n- eggs')).toBe('milk');
+    expect(noteSnippet('# Only a title')).toBe('');
+  });
+});
+
+describe('folderTree', () => {
+  it('lists folders depth first by name, with their paths', () => {
+    const tree = folderTree([
+      { id: 'w', name: 'work' },
+      { id: 's', name: 'Sub', parentId: 'w' },
+      { id: 'h', name: 'Home' },
+      { id: 'o', name: 'Orphan', parentId: 'gone' },
+    ]);
+    expect(tree.map(({ folder, depth, path }) => [folder.id, depth, path])).toEqual([
+      ['h', 0, 'Home'],
+      ['o', 0, 'Orphan'],
+      ['w', 0, 'work'],
+      ['s', 1, 'work / Sub'],
+    ]);
+  });
+});
+
+describe('selectNotes', () => {
+  const now = new Date(2026, 9, 25, 15).getTime();
+  const notes = [
+    note({ id: 'a', title: 'Milk', body: 'milk', tags: ['home'], folderId: 'f1', updatedAt: now - 1 }),
+    note({ id: 'b', title: 'Bread', body: 'bread', tags: ['home', 'work'], updatedAt: now - 2 }),
+    note({ id: 'c', title: 'Old', body: 'milk', updatedAt: 1, deletedAt: now - 10 }),
+    note({ id: 'd', title: 'Older', body: 'x', updatedAt: 1, deletedAt: now - 20 }),
+  ];
+  const folders = [{ id: 'f1', name: 'Shop' }];
+  const select = (filter: Partial<Parameters<typeof selectNotes>[2]>) =>
+    selectNotes(notes, folders, { inTrash: false, ...filter }, now);
+  const listed = (filter: Partial<Parameters<typeof selectNotes>[2]>) =>
+    select(filter).groups.map((g) => [g.label, g.notes.map((n) => n.id)]);
+
+  it('counts live notes by folder and tag, and orders the trash newest first', () => {
+    const lists = select({});
+    expect(lists.live.map((n) => n.id)).toEqual(['a', 'b']);
+    expect(lists.deleted.map((n) => n.id)).toEqual(['c', 'd']);
+    expect(lists.tags).toEqual([
+      ['home', 2],
+      ['work', 1],
+    ]);
+    expect(lists.counts).toEqual({
+      all: 2,
+      deleted: 2,
+      folders: new Map([
+        ['f1', 1],
+        [NO_FOLDER, 1],
+      ]),
+    });
+  });
+
+  it('lists by date, filtered by folder or tag', () => {
+    expect(listed({})).toEqual([['Today', ['a', 'b']]]);
+    expect(listed({ folder: 'f1' })).toEqual([['Today', ['a']]]);
+    expect(listed({ tag: 'work' })).toEqual([['Today', ['b']]]);
+  });
+
+  it('searches within the view, and lists the trash without dates', () => {
+    expect(listed({ q: ' milk ' })).toEqual([['Results', ['a']]]);
+    expect(listed({ q: 'nothing' })).toEqual([]);
+    expect(listed({ inTrash: true })).toEqual([['', ['c', 'd']]]);
+    expect(listed({ inTrash: true, q: 'milk' })).toEqual([['Results', ['c']]]);
+  });
+});
