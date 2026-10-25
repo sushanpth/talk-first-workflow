@@ -6,23 +6,24 @@ import { MermaidDiagram } from '@/components/mermaid-diagram';
 import { type Link, useProject } from '@/lib/api';
 import { useCodeRef } from '@/lib/code-api';
 import { codeRefOf, type MdNode, remarkCodeRefs } from '@/lib/code-refs';
+import { findWikiLinks } from '@/lib/notes/model';
 import { ATTACHMENT_SCHEME } from '@/lib/notes/types';
 
-const WIKI_RE = /\[\[([^\]]+)\]\]/g;
 const WIKI_PREFIX = 'wikilink:';
 
+// Same matcher as the notes editor; the raw inner text is kept, as memory.py's link targets are.
 function splitWikiLinks(value: string): MdNode[] {
   const nodes: MdNode[] = [];
   let last = 0;
-  for (const match of value.matchAll(WIKI_RE)) {
-    const target = match[1] ?? '';
-    if (match.index > last) nodes.push({ type: 'text', value: value.slice(last, match.index) });
+  for (const { from, to } of findWikiLinks(value)) {
+    const target = value.slice(from + 2, to - 2);
+    if (from > last) nodes.push({ type: 'text', value: value.slice(last, from) });
     nodes.push({
       type: 'link',
       url: WIKI_PREFIX + encodeURIComponent(target),
       children: [{ type: 'text', value: target }],
     });
-    last = match.index + match[0].length;
+    last = to;
   }
   if (last < value.length) nodes.push({ type: 'text', value: value.slice(last) });
   return nodes;

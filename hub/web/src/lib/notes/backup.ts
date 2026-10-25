@@ -13,11 +13,19 @@ export interface BackupEntry {
   data: Uint8Array;
 }
 
+/** What one or more picked files hold: entries to import, and paths left out. */
+export interface BackupFiles {
+  entries: BackupEntry[];
+  /** Not a note or image, or over the size caps. */
+  ignored: string[];
+}
+
 export interface ImportResult {
   added: number;
   updated: number;
   skipped: number;
   attachments: number;
+  ignored: string[];
 }
 
 const NAME_MAX = 100;
@@ -102,10 +110,44 @@ export async function exportNotes(db: NotesDb): Promise<Uint8Array> {
   return zipSync(files);
 }
 
-/** The files to import from one picked file: a zip's contents, or the file itself. */
-export function backupEntries(name: string, data: Uint8Array): BackupEntry[] {
-  if (!name.toLowerCase().endsWith('.zip')) return [{ path: name, data }];
-  return Object.entries(unzipSync(data)).map(([path, bytes]) => ({ path, data: bytes }));
+export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
+
+// SVG is left out: opened from its blob URL, it could run script in the hub's origin.
+const MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+};
+const extOf = (path: string) => path.split('.').pop()?.toLowerCase() ?? '';
+const importable = (path: string) => extOf(path) === 'md' || extOf(path) in MIME;
+const JUNK_RE = /(^|\/)(__MACOSX|\.obsidian|\.trash)\/|(^|\/)\.DS_Store$/;
+
+/** The files to import from one picked file: a zip's notes and images, or the file itself. */
+export function backupEntries(name: string, data: Uint8Array): BackupFiles {
+  if (!name.toLowerCase().endsWith('.zip')) {
+    return importable(name) && data.length <= MAX_FILE_BYTES
+      ? { entries: [{ path: name, data }], ignored: [] }
+      : { entries: [], ignored: [name] };
+  }
+  const ignored: string[] = [];
+  let total = 0;
+  // Sizes come from the zip's headers; fflate inflates into buffers of exactly that size.
+  const files = unzipSync(data, {
+    filter: ({ name: path, originalSize }) => {
+      if (path.endsWith('/') || JUNK_RE.test(path)) return false;
+      const ok =
+        importable(path) && originalSize <= MAX_FILE_BYTES && total + originalSize <= MAX_TOTAL_BYTES;
+      if (ok) total += originalSize;
+      else ignored.push(path);
+      return ok;
+    },
+  });
+  return { entries: Object.entries(files).map(([path, bytes]) => ({ path, data: bytes })), ignored };
 }
 
 type Meta = Record<string, string | boolean | string[]>;
@@ -152,18 +194,7 @@ function splitFrontMatter(text: string): { meta: Meta; body: string } {
   return { meta, body: text.slice(m[0].length) };
 }
 
-const MIME: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  bmp: 'image/bmp',
-  svg: 'image/svg+xml',
-};
-const mimeOf = (path: string) =>
-  MIME[path.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream';
+const mimeOf = (path: string) => MIME[extOf(path)] ?? 'application/octet-stream';
 
 /** Joins a relative link onto a directory, resolving `.` and `..`; null when it climbs out. */
 function resolvePath(dir: string[], href: string): string | null {
@@ -178,7 +209,6 @@ function resolvePath(dir: string[], href: string): string | null {
 }
 
 const LINK_DEST_RE = /\]\((<[^>\n]*>|[^)\s]+)\)/g;
-const SKIPPED_RE = /(^|\/)(__MACOSX|\.obsidian|\.trash)\/|(^|\/)\.DS_Store$/;
 const time = (value: unknown, fallback: number) => {
   const ms = typeof value === 'string' ? Date.parse(value) : Number.NaN;
   return Number.isNaN(ms) ? fallback : ms;
@@ -187,12 +217,14 @@ const time = (value: unknown, fallback: number) => {
 /** Imports `.md` files and the images they link; a note with a known id is replaced only by a newer copy. */
 export async function importBackup(
   db: NotesDb,
-  entries: readonly BackupEntry[],
+  { entries, ignored }: BackupFiles,
   now: number = Date.now(),
 ): Promise<ImportResult> {
-  const result: ImportResult = { added: 0, updated: 0, skipped: 0, attachments: 0 };
+  const result: ImportResult = { added: 0, updated: 0, skipped: 0, attachments: 0, ignored: [...ignored] };
   const files = new Map(
-    entries.filter((e) => !e.path.endsWith('/') && !SKIPPED_RE.test(e.path)).map((e) => [e.path, e]),
+    entries
+      .filter((e) => !e.path.endsWith('/') && !JUNK_RE.test(e.path) && importable(e.path))
+      .map((e) => [e.path, e]),
   );
   const attachmentIds = new Map<string, string>();
 

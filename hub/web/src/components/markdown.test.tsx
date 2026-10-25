@@ -94,6 +94,13 @@ describe('Markdown for notes', () => {
     expect(html).toContain('<button type="button">Groceries|list</button>');
   });
 
+  it('leaves empty wikilinks as text, as the editor does', () => {
+    const html = renderNote('[[]] [[#h]] [[ A ]]', {
+      renderWikiLink: (target) => <button type="button">{target}</button>,
+    });
+    expect(html).toContain('[[]] [[#h]] <button type="button"> A </button>');
+  });
+
   it('makes task checkboxes tickable, with the offset of their list item', () => {
     const text = 'intro\n\n- [ ] milk\n- [x] eggs';
     const html = renderNote(text, { onToggleTask: () => {} });

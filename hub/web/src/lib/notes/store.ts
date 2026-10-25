@@ -1,5 +1,5 @@
 import { NotesDb } from './db.ts';
-import { noteTitle, parseTags } from './model.ts';
+import { isSvg, noteTitle, parseTags } from './model.ts';
 import { type Folder, NO_FOLDER, type Note } from './types.ts';
 
 export const KEEP_DELETED_DAYS = 30;
@@ -130,6 +130,7 @@ export class NotesStore {
   }
 
   async addAttachment(noteId: string, blob: Blob, name: string): Promise<string> {
+    if (isSvg({ type: blob.type, name })) throw new Error('SVG images are not stored.');
     const id = newId();
     await this.db.attachments.add({
       id,

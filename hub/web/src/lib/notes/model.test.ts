@@ -7,12 +7,14 @@ import {
   groupByDate,
   linkedMentions,
   linkMention,
+  linkTargets,
   noteSnippet,
   noteTitle,
   outline,
   parseLinks,
   parseTags,
   resolveLink,
+  selectNotes,
   TAG_RE,
   toggleTask,
   unlinkedMentions,
@@ -235,6 +237,20 @@ describe('resolveLink', () => {
   });
 });
 
+describe('linkTargets', () => {
+  it("offers other notes' titles once each, then memory notes, never the note itself", () => {
+    const live = [
+      { id: 'a', title: 'Groceries' },
+      { id: 'b', title: 'Plans' },
+      { id: 'c', title: 'Plans' },
+    ];
+    expect(linkTargets(live, 'a', ['roadmap'])).toEqual([
+      { label: 'Plans', kind: 'note' },
+      { label: 'roadmap', kind: 'memory' },
+    ]);
+  });
+});
+
 describe('mentions', () => {
   const target = note({ id: 't', title: 'Groceries', body: '# Groceries' });
   const notes = [
@@ -295,5 +311,51 @@ describe('folderTree', () => {
       ['w', 0, 'work'],
       ['s', 1, 'work / Sub'],
     ]);
+  });
+});
+
+describe('selectNotes', () => {
+  const now = new Date(2026, 9, 25, 15).getTime();
+  const notes = [
+    note({ id: 'a', title: 'Milk', body: 'milk', tags: ['home'], folderId: 'f1', updatedAt: now - 1 }),
+    note({ id: 'b', title: 'Bread', body: 'bread', tags: ['home', 'work'], updatedAt: now - 2 }),
+    note({ id: 'c', title: 'Old', body: 'milk', updatedAt: 1, deletedAt: now - 10 }),
+    note({ id: 'd', title: 'Older', body: 'x', updatedAt: 1, deletedAt: now - 20 }),
+  ];
+  const folders = [{ id: 'f1', name: 'Shop' }];
+  const select = (filter: Partial<Parameters<typeof selectNotes>[2]>) =>
+    selectNotes(notes, folders, { inTrash: false, ...filter }, now);
+  const listed = (filter: Partial<Parameters<typeof selectNotes>[2]>) =>
+    select(filter).groups.map((g) => [g.label, g.notes.map((n) => n.id)]);
+
+  it('counts live notes by folder and tag, and orders the trash newest first', () => {
+    const lists = select({});
+    expect(lists.live.map((n) => n.id)).toEqual(['a', 'b']);
+    expect(lists.deleted.map((n) => n.id)).toEqual(['c', 'd']);
+    expect(lists.tags).toEqual([
+      ['home', 2],
+      ['work', 1],
+    ]);
+    expect(lists.counts).toEqual({
+      all: 2,
+      deleted: 2,
+      folders: new Map([
+        ['f1', 1],
+        [NO_FOLDER, 1],
+      ]),
+    });
+  });
+
+  it('lists by date, filtered by folder or tag', () => {
+    expect(listed({})).toEqual([['Today', ['a', 'b']]]);
+    expect(listed({ folder: 'f1' })).toEqual([['Today', ['a']]]);
+    expect(listed({ tag: 'work' })).toEqual([['Today', ['b']]]);
+  });
+
+  it('searches within the view, and lists the trash without dates', () => {
+    expect(listed({ q: ' milk ' })).toEqual([['Results', ['a']]]);
+    expect(listed({ q: 'nothing' })).toEqual([]);
+    expect(listed({ inTrash: true })).toEqual([['', ['c', 'd']]]);
+    expect(listed({ inTrash: true, q: 'milk' })).toEqual([['Results', ['c']]]);
   });
 });

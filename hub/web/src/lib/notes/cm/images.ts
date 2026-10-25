@@ -1,12 +1,14 @@
 import { type EditorState, StateEffect, StateField, type Transaction } from '@codemirror/state';
+import { isSvg } from '../model.ts';
 import { ATTACHMENT_SCHEME } from '../types.ts';
 
 export function imageMarkdown(name: string, id: string): string {
   return `![${name.replace(/[\\[\]]/g, '\\$&')}](${ATTACHMENT_SCHEME}${id})`;
 }
 
+/** SVG is left out; the store refuses it. */
 export function imagesOf(files: Iterable<File>): File[] {
-  return [...files].filter((file) => file.type.startsWith('image/'));
+  return [...files].filter((file) => file.type.startsWith('image/') && !isSvg(file));
 }
 
 const addPending = StateEffect.define<{ token: number; pos: number }>();

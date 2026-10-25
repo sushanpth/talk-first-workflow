@@ -82,6 +82,14 @@ describe('notes', () => {
     expect(await liveIds()).toEqual([note.id]);
   });
 
+  it('refuses SVG attachments', async () => {
+    const note = await store.create();
+    const svg = new Blob(['<svg/>'], { type: 'image/svg+xml' });
+    await expect(store.addAttachment(note.id, svg, 'a.svg')).rejects.toThrow(/SVG/);
+    await expect(store.addAttachment(note.id, new Blob(['x']), 'b.SVG')).rejects.toThrow(/SVG/);
+    expect(await db.attachments.count()).toBe(0);
+  });
+
   it('deletes a note for good, with its attachments', async () => {
     const note = await store.create({ body: 'a' });
     await store.addAttachment(note.id, new Blob(['x']), 'a.png');

@@ -12,9 +12,10 @@ describe('imageMarkdown', () => {
 });
 
 describe('imagesOf', () => {
-  it('keeps only image files', () => {
+  it('keeps only image files, not SVG', () => {
     const text = new File(['x'], 'notes.txt', { type: 'text/plain' });
-    expect(imagesOf([text, png('a.png')]).map((f) => f.name)).toEqual(['a.png']);
+    const svg = new File(['<svg/>'], 'a.svg', { type: 'image/svg+xml' });
+    expect(imagesOf([text, svg, png('a.png')]).map((f) => f.name)).toEqual(['a.png']);
   });
 });
 

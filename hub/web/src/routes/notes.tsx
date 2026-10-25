@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import {
   ArrowLeft,
   BookOpen,
@@ -13,35 +13,34 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
+import { useNoteActions } from '@/components/notes/actions';
 import NoteEditor from '@/components/notes/editor';
 import { useAttachmentUrls, useMemoryNames, useNotesData } from '@/components/notes/hooks';
 import { NoteList } from '@/components/notes/note-list';
 import { NotePanel } from '@/components/notes/note-panel';
 import { QuickSwitcher } from '@/components/notes/quick-switcher';
+import { useNotesShortcuts } from '@/components/notes/shortcuts';
 import { NotesSidebar } from '@/components/notes/sidebar';
 import { DELETED_VIEW } from '@/components/notes/view';
 import { Button } from '@/components/ui/button';
 import { useAllProjects } from '@/lib/api';
-import { backupEntries, exportNotes, importBackup } from '@/lib/notes/backup';
 import {
-  type DateGroup,
-  dailyTitle,
   daysLeft,
   folderTree,
-  groupByDate,
   linkedMentions,
   linkMention,
+  linkTargets,
   outline,
   parseLinkText,
   resolveLink,
+  selectNotes,
   toggleTask,
   unlinkedMentions,
 } from '@/lib/notes/model';
-import { searchNotes } from '@/lib/notes/search';
 import { DebouncedSaver, KEEP_DELETED_DAYS, notesStore, requestPersistence } from '@/lib/notes/store';
-import { type EditorProps, type LinkTarget, NO_FOLDER, type Note } from '@/lib/notes/types';
+import { type EditorProps, type LinkTarget, NO_FOLDER } from '@/lib/notes/types';
 import { useIsDark } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -63,15 +62,6 @@ const iconButton = (label: string, onClick: () => void, icon: ReactNode, pressed
 
 const selectClass = 'h-8 max-w-40 rounded-md border bg-background px-2 text-sm';
 
-function downloadBytes(bytes: Uint8Array, name: string) {
-  const url = URL.createObjectURL(new Blob([bytes.slice()], { type: 'application/zip' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 function HostNotice() {
   // Each address is its own browser origin, with its own IndexedDB.
   if (typeof window === 'undefined' || window.location.hostname === '127.0.0.1') return null;
@@ -86,7 +76,6 @@ export function NotesPage() {
   const store = useMemo(notesStore, []);
   const { id } = useParams({ strict: false });
   const view = useSearch({ from: '/notes' });
-  const navigate = useNavigate();
   const dark = useIsDark();
   const { notes, folders } = useNotesData(store);
   const { resolve, retryMissing } = useAttachmentUrls(store);
@@ -128,39 +117,20 @@ export function NotesPage() {
   const now = Date.now();
   const allNotes = notes ?? [];
   const allFolders = folders ?? [];
-  const live = useMemo(() => (notes ?? []).filter((n) => !n.deletedAt), [notes]);
-  const deleted = useMemo(
-    () => (notes ?? []).filter((n) => n.deletedAt).sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0)),
-    [notes],
-  );
-  const tree = useMemo(() => folderTree(folders ?? []), [folders]);
-  const tags = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const n of live) for (const t of n.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
-    return [...counts].sort(([a], [b]) => a.localeCompare(b));
-  }, [live]);
-  const counts = useMemo(() => {
-    const byFolder = new Map<string, number>();
-    for (const n of live) byFolder.set(n.folderId, (byFolder.get(n.folderId) ?? 0) + 1);
-    return { all: live.length, deleted: deleted.length, folders: byFolder };
-  }, [live, deleted]);
-
   const inTrash = view.folder === DELETED_VIEW;
   const folderView = !inTrash && view.folder ? allFolders.find((f) => f.id === view.folder) : undefined;
   const q = view.q?.trim() ?? '';
-  const groups: DateGroup<Note>[] = useMemo(() => {
-    const pool = inTrash
-      ? deleted
-      : live.filter(
-          (n) => (!view.folder || n.folderId === view.folder) && (!view.tag || n.tags.includes(view.tag)),
-        );
-    if (q) {
-      const found = searchNotes(pool, q, folders ?? [], { deleted: inTrash });
-      return found.length > 0 ? [{ label: 'Results', notes: found }] : [];
-    }
-    if (inTrash) return pool.length > 0 ? [{ label: '', notes: pool }] : [];
-    return groupByDate(pool, Date.now());
-  }, [inTrash, deleted, live, view.folder, view.tag, q, folders]);
+  const { live, deleted, tags, counts, groups } = useMemo(
+    () =>
+      selectNotes(
+        notes ?? [],
+        folders ?? [],
+        { folder: inTrash ? undefined : view.folder, tag: view.tag, q, inTrash },
+        Date.now(),
+      ),
+    [notes, folders, inTrash, view.folder, view.tag, q],
+  );
+  const tree = useMemo(() => folderTree(folders ?? []), [folders]);
 
   const note = id ? allNotes.find((n) => n.id === id) : undefined;
   const noteId = note?.id;
@@ -173,118 +143,43 @@ export function NotesPage() {
   const memoryNames = useMemoryNames(note?.project);
 
   const titles = useRef<readonly LinkTarget[]>([]);
-  titles.current = [
-    ...[...new Set(live.map((n) => n.title))].map((label): LinkTarget => ({ label, kind: 'note' })),
-    ...memoryNames.map((label): LinkTarget => ({ label, kind: 'memory' })),
-  ];
+  titles.current = linkTargets(live, noteId, memoryNames);
   const tagList = useRef<readonly string[]>([]);
   tagList.current = tags.map(([t]) => t);
 
-  const keepSearch = { search: (prev: object) => prev };
-  const openNote = (noteId: string) => navigate({ to: '/notes/$id', params: { id: noteId }, ...keepSearch });
-
-  const createNote = async (body = '', folderId: string = NO_FOLDER, project?: string) => {
-    await saver.flush();
-    const created = await store.create({ body, folderId, project });
-    setFocusId(created.id);
-    setReading(false);
-    await navigate({
-      to: '/notes/$id',
-      params: { id: created.id },
-      search: folderId === NO_FOLDER ? {} : { folder: folderId },
-    });
-  };
-
-  const newNote = () => void createNote('', folderView?.id ?? NO_FOLDER);
-
-  const openDaily = () => {
-    const title = dailyTitle(new Date());
-    const existing = live.find((n) => n.title === title);
-    if (existing) void navigate({ to: '/notes/$id', params: { id: existing.id }, search: {} });
-    else void createNote(`# ${title}\n\n`);
-  };
-
-  const openLink = (target: string, from: Note | undefined) => {
-    const r = resolveLink(target, { notes: allNotes, project: from?.project, memoryNames });
-    if (r.kind === 'note') void openNote(r.noteId);
-    else if (r.kind === 'memory')
-      void navigate({ to: '/p/$project/memory/$note', params: { project: r.project, note: r.name } });
-    else void createNote(`# ${target}\n\n`, from?.folderId ?? NO_FOLDER, from?.project);
-  };
-
-  const onChange = (body: string) => {
-    if (!note) return;
-    setDraft({ id: note.id, body });
-    saver.schedule(note.id, body);
-  };
-
-  const removeNote = async () => {
-    if (!note) return;
-    await saver.flush();
-    await store.remove(note.id);
-    await navigate({ to: '/notes', ...keepSearch });
-  };
-
-  const restoreNote = async () => {
-    if (!note) return;
-    await store.restore(note.id);
-    await navigate({ to: '/notes/$id', params: { id: note.id }, search: {} });
-  };
-
-  const destroyNote = async () => {
-    if (!note || !window.confirm(`Delete “${note.title}” for good? This can't be undone.`)) return;
-    await store.destroy(note.id);
-    await navigate({ to: '/notes', ...keepSearch });
-  };
-
-  const emptyTrash = async () => {
-    if (!window.confirm(`Delete ${deleted.length} notes for good? This can't be undone.`)) return;
-    await store.emptyTrash();
-    await navigate({ to: '/notes', ...keepSearch });
-  };
-
-  const onExport = async () => {
-    try {
-      await saver.flush();
-      downloadBytes(await exportNotes(store.db), `hub-notes-${dailyTitle(new Date())}.zip`);
-      setStatus(`Exported ${live.length} notes.`);
-    } catch (e) {
-      setStatus(`Export failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
-  const onImport = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(e.target.files ?? [])];
-    e.target.value = '';
-    if (files.length === 0) return;
-    try {
-      await saver.flush();
-      const entries = [];
-      for (const file of files)
-        entries.push(...backupEntries(file.name, new Uint8Array(await file.arrayBuffer())));
-      const r = await importBackup(store.db, entries);
-      retryMissing();
-      setStatus(
-        `Imported ${r.added} new and ${r.updated} updated notes; ${r.skipped} were already up to date.`,
-      );
-    } catch (err) {
-      setStatus(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
-
-  const newFolder = async (parentId?: string) => {
-    const folder = await store.createFolder('New folder', parentId);
-    setEditingFolder(folder.id);
-  };
-
-  const deleteFolder = async (folderId: string, name: string) => {
-    if (!window.confirm(`Delete the folder “${name}”? Its notes move to Recently Deleted.`)) return;
-    await store.deleteFolder(folderId);
-    if (view.folder === folderId) await navigate({ to: '/notes', search: {} });
-  };
-
-  const setQuery = (text: string) =>
-    navigate({ to: '.', search: (prev: object) => ({ ...prev, q: text || undefined }), replace: true });
+  const {
+    openNote,
+    createNote,
+    newNote,
+    openDaily,
+    openLink,
+    onChange,
+    removeNote,
+    restoreNote,
+    destroyNote,
+    emptyTrash,
+    onExport,
+    onImport,
+    newFolder,
+    deleteFolder,
+    setQuery,
+  } = useNoteActions({
+    store,
+    saver,
+    note,
+    allNotes,
+    live,
+    deleted,
+    memoryNames,
+    viewFolder: view.folder,
+    newNoteFolder: folderView?.id ?? NO_FOLDER,
+    retryMissing,
+    setDraft,
+    setFocusId,
+    setReading,
+    setStatus,
+    setEditingFolder,
+  });
 
   const headings = useMemo(() => outline(value), [value]);
   const onHeading = (index: number) => {
@@ -300,40 +195,13 @@ export function NotesPage() {
   const linked = useMemo(() => (note ? linkedMentions(note, allNotes) : []), [note, allNotes]);
   const unlinked = useMemo(() => (note ? unlinkedMentions(note, allNotes) : []), [note, allNotes]);
 
-  // Read through a ref so the listener, added once, always calls the latest handlers.
-  const shortcuts = useRef<Record<string, () => void>>({});
-  shortcuts.current = {
+  useNotesShortcuts({
     new: newNote,
     switcher: () => setSwitcher(true),
     mode: () => setReading((r) => !r),
     search: () => searchRef.current?.focus(),
     daily: openDaily,
-  };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      // `code`, not `key`: Alt and Shift change the key's character on some layouts.
-      const action =
-        e.altKey && !e.shiftKey && e.code === 'KeyN'
-          ? 'new'
-          : !e.altKey && !e.shiftKey && e.code === 'KeyO'
-            ? 'switcher'
-            : !e.altKey && !e.shiftKey && e.code === 'KeyE'
-              ? 'mode'
-              : !e.altKey && e.shiftKey && e.code === 'KeyF'
-                ? 'search'
-                : !e.altKey && e.shiftKey && e.code === 'KeyD'
-                  ? 'daily'
-                  : undefined;
-      if (!action) return;
-      e.preventDefault();
-      e.stopPropagation();
-      shortcuts.current[action]?.();
-    };
-    // Capture phase, so the editor never swallows these first.
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, []);
+  });
 
   // A narrow screen shows one column; picking a folder returns to the list.
   useEffect(() => setShowFolders(false), [view.folder, view.tag]);

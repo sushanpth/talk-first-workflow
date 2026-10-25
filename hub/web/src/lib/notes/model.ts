@@ -1,5 +1,6 @@
 // Pure helpers over note bodies: titles, tags, links, outline, date groups and link resolution.
-import type { Folder, Note, NoteLink, ResolvedLink } from './types.ts';
+import { searchNotes } from './search.ts';
+import type { Folder, LinkTarget, Note, NoteLink, ResolvedLink } from './types.ts';
 
 export const DEFAULT_TITLE = 'New note';
 const TITLE_MAX = 200;
@@ -195,6 +196,19 @@ export function resolveLink(target: string, { notes, project, memoryNames = [] }
   return { kind: 'unresolved', target };
 }
 
+/** `[[` completions: other live notes' titles, once each, then the project's memory notes. */
+export function linkTargets(
+  live: readonly Pick<Note, 'id' | 'title'>[],
+  selfId: string | undefined,
+  memoryNames: readonly string[],
+): LinkTarget[] {
+  const titles = new Set(live.filter((n) => n.id !== selfId).map((n) => n.title));
+  return [
+    ...[...titles].map((label): LinkTarget => ({ label, kind: 'note' })),
+    ...memoryNames.map((label): LinkTarget => ({ label, kind: 'memory' })),
+  ];
+}
+
 /** Live notes with a `[[link]]` to this note's title. */
 export function linkedMentions<T extends Note>(note: Note, notes: readonly T[]): T[] {
   const key = note.title.toLowerCase();
@@ -286,4 +300,61 @@ export function folderTree(folders: readonly Folder[]): FolderRow[] {
     walk(folder.id, 1, folder.name);
   }
   return rows;
+}
+
+/** SVG can carry script, which would run in the hub's origin if its blob URL were opened. */
+export const isSvg = (file: { type: string; name?: string }) =>
+  file.type === 'image/svg+xml' || /\.svg$/i.test(file.name ?? '');
+
+export interface NotesFilter {
+  /** A folder id; unused in Recently Deleted. */
+  folder?: string;
+  tag?: string;
+  q?: string;
+  inTrash: boolean;
+}
+
+export interface NotesLists {
+  live: Note[];
+  /** Most recently deleted first. */
+  deleted: Note[];
+  /** Tags of live notes with their note counts, by name. */
+  tags: [string, number][];
+  counts: { all: number; deleted: number; folders: Map<string, number> };
+  /** What the note list shows for the filter. */
+  groups: DateGroup<Note>[];
+}
+
+/** Everything the Notes page lists, from all notes and the current view. */
+export function selectNotes(
+  notes: readonly Note[],
+  folders: readonly Folder[],
+  { folder, tag, q = '', inTrash }: NotesFilter,
+  now: number,
+): NotesLists {
+  const live = notes.filter((n) => !n.deletedAt);
+  const deleted = notes.filter((n) => n.deletedAt).sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+  const tagCounts = new Map<string, number>();
+  const byFolder = new Map<string, number>();
+  for (const n of live) {
+    for (const t of n.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+    byFolder.set(n.folderId, (byFolder.get(n.folderId) ?? 0) + 1);
+  }
+  const pool = inTrash
+    ? deleted
+    : live.filter((n) => (!folder || n.folderId === folder) && (!tag || n.tags.includes(tag)));
+  const query = q.trim();
+  let groups: DateGroup<Note>[];
+  if (query) {
+    const found = searchNotes(pool, query, folders, { deleted: inTrash });
+    groups = found.length > 0 ? [{ label: 'Results', notes: found }] : [];
+  } else if (inTrash) groups = pool.length > 0 ? [{ label: '', notes: pool }] : [];
+  else groups = groupByDate(pool, now);
+  return {
+    live,
+    deleted,
+    tags: [...tagCounts].sort(([a], [b]) => a.localeCompare(b)),
+    counts: { all: live.length, deleted: deleted.length, folders: byFolder },
+    groups,
+  };
 }
