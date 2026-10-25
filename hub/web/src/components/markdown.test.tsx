@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Markdown } from './markdown.tsx';
@@ -58,5 +59,50 @@ describe('Markdown code fences', () => {
     const html = render('```\nflowchart TD\n```');
     expect(html).toContain('<pre><code>flowchart TD\n</code></pre>');
     expect(html).not.toContain('data-mermaid');
+  });
+});
+
+const renderNote = (text: string, props: Partial<ComponentProps<typeof Markdown>> = {}) =>
+  renderToStaticMarkup(
+    <QueryClientProvider client={new QueryClient()}>
+      <Markdown text={text} {...props} />
+    </QueryClientProvider>,
+  );
+
+describe('Markdown for notes', () => {
+  it('shows an attachment image through the resolver', () => {
+    const html = renderNote('![cat](attachment:abc)', { resolveAttachment: (id) => `blob:x/${id}` });
+    expect(html).toContain('<img src="blob:x/abc" alt="cat"/>');
+  });
+
+  it('shows alt text for an attachment without a resolver, or one still loading', () => {
+    expect(renderNote('![cat](attachment:abc)')).not.toContain('<img');
+    expect(renderNote('![cat](attachment:abc)', { resolveAttachment: () => undefined })).not.toContain(
+      '<img',
+    );
+  });
+
+  it('never loads a blob URL written into the text', () => {
+    const html = renderNote('![x](blob:abc)', { resolveAttachment: () => 'blob:y' });
+    expect(html).not.toContain('<img');
+  });
+
+  it('renders wikilinks through the given renderer', () => {
+    const html = renderNote('see [[Groceries|list]]', {
+      renderWikiLink: (target) => <button type="button">{target}</button>,
+    });
+    expect(html).toContain('<button type="button">Groceries|list</button>');
+  });
+
+  it('makes task checkboxes tickable, with the offset of their list item', () => {
+    const text = 'intro\n\n- [ ] milk\n- [x] eggs';
+    const html = renderNote(text, { onToggleTask: () => {} });
+    expect(html).toContain(`data-task-offset="${text.indexOf('- [ ]')}"`);
+    expect(html).toContain(`data-task-offset="${text.indexOf('- [x]')}"`);
+    expect(html).not.toContain('disabled');
+  });
+
+  it('keeps task checkboxes read-only without a toggle handler', () => {
+    expect(render('- [ ] milk')).toContain('disabled');
   });
 });
