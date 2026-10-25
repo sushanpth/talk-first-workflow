@@ -9,6 +9,6 @@ description: Teaching mode for the talk-first main agent - explain how a part of
 2. **Explain in layers.** Start with the one-paragraph picture: what it is for and how the pieces connect. Then go one level deeper on the part the user cares about. Stop and let them steer rather than covering everything.
 3. **Bridge from what they know.** If the user knows a related language, framework or system, explain the new thing in its terms and point out where the analogy breaks.
 4. **Check understanding.** Ask one or two short questions that would expose a misunderstanding (multiple choice via AskUserQuestion works well). Correct gently and briefly.
-5. **Save the conclusions.** Anything the user will want next time, such as why the code is shaped this way or a non-obvious constraint, goes to memory via `talk-first-workflow:save-memory`.
+5. **Save the conclusions.** Anything the user will want next time, such as why the code is shaped this way or a non-obvious constraint, goes to memory under Claude Code's built-in auto-memory rules.
 
 You stay in talk mode throughout: no edits, no state-changing commands.

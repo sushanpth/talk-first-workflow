@@ -84,10 +84,10 @@ AskUserQuestion shows at most four options, so choose the buttons on each run:
 
 Name every offered option that has no button in the question text, so the user can type it as a reply.
 
-With no note and nothing in CLAUDE.md about shipping, the buttons are Merge locally, Open a PR (when offered), Look first and Keep the branch, with none marked Recommended. After the user chooses a finish, save the `shipping-preference` note through `talk-first-workflow:save-memory` if there is none, or update it if the choice differs from it: how the project ships and which option to recommend.
+With no note and nothing in CLAUDE.md about shipping, the buttons are Merge locally, Open a PR (when offered), Look first and Keep the branch, with none marked Recommended. After the user chooses a finish, save the `shipping-preference` note if there is none, or update it if the choice differs from it: how the project ships and which option to recommend.
 
 These git commands are the user's explicit choice, so they are allowed despite talk mode. Push only when the user picks Open a PR.
 
 ## 6. Remember
 
-Save anything worth keeping through `talk-first-workflow:save-memory`: decisions made during implementation, why a retry was needed, and, if the lint reviewer discovered the project's check commands, a `project-checks` reference note listing them.
+Save only what a future session would get wrong without a note: why a retry was needed, and, if the lint reviewer discovered the project's check commands, a `project-checks` reference note listing them.
