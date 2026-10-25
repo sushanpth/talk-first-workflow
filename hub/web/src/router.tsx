@@ -6,7 +6,9 @@ import {
   Outlet,
   redirect,
   useParams,
+  useRouterState,
 } from '@tanstack/react-router';
+import { parseNotesSearch } from '@/components/notes/view';
 import { ProjectSwitcher } from '@/components/project-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { parseListSearch, parseMemorySearch } from '@/lib/list-search';
@@ -23,18 +25,28 @@ import {
 } from '@/routes/code';
 import { DocPage, DocsPage } from '@/routes/docs';
 import { MemoryPage, NotePage } from '@/routes/memory';
+import { NotesPage } from '@/routes/notes';
 import { PlanPage, PlansPage } from '@/routes/plans';
 import { ProjectLayout, ProjectsPage, SECTIONS } from '@/routes/projects';
 import { WorktreePage, WorktreesPage } from '@/routes/worktrees';
 
 function RootLayout() {
   const { project } = useParams({ strict: false });
+  // Notes live in the browser and are editable; the label is about project files.
+  const onNotes = useRouterState({ select: (s) => s.location.pathname.startsWith('/notes') });
   return (
     <>
       <header className="sticky top-0 z-20 border-b bg-background">
         <div className="mx-auto flex h-12 max-w-7xl items-stretch gap-3 px-6">
           <Link to="/" className="flex shrink-0 items-center font-semibold">
             talk-first hub
+          </Link>
+          <Link
+            to="/notes"
+            className="flex shrink-0 items-center border-b-2 border-transparent px-1 text-sm text-muted-foreground hover:text-foreground"
+            activeProps={{ className: cn('border-foreground! text-foreground!') }}
+          >
+            Notes
           </Link>
           {project && (
             <>
@@ -59,7 +71,7 @@ function RootLayout() {
             </>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <span className="text-xs text-muted-foreground">read-only</span>
+            {!onNotes && <span className="text-xs text-muted-foreground">read-only</span>}
             <ThemeToggle />
           </div>
         </div>
@@ -158,8 +170,19 @@ const worktreeRoute = createRoute({
   }),
 });
 
+// One layout for the list and an open note, so switching notes keeps the page mounted.
+const notesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/notes',
+  component: NotesPage,
+  validateSearch: parseNotesSearch,
+});
+const notesIndexRoute = createRoute({ getParentRoute: () => notesRoute, path: '/' });
+const notesNoteRoute = createRoute({ getParentRoute: () => notesRoute, path: '$id' });
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  notesRoute.addChildren([notesIndexRoute, notesNoteRoute]),
   projectRoute.addChildren([
     projectIndexRoute,
     plansRoute,
