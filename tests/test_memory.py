@@ -50,7 +50,7 @@ class TestCheck:
         assert memory.check_text(text) == []
 
 
-class TestSimilarAndSearch:
+class TestSearch:
     def write_notes(self, directory):
         directory.mkdir(parents=True)
         (directory / "MEMORY.md").write_text("- index\n")
