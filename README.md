@@ -13,6 +13,20 @@ A Claude Code plugin for talk-first AI development. You talk with the main sessi
 
 Restart Claude Code after installing. The first session in each repo asks where to keep that project's memory. Requires Claude Code, Python 3 and Node.js with `npx`; the optional hub also needs Node.js 22.18 or newer and pnpm. See [docs/install.md](docs/install.md) for the browser download, updating, turning it off and uninstalling.
 
+## Hub commands
+
+The agent opens the hub for you when you choose **Open the plan** or **Look first**. To open it yourself, run these from the plugin folder:
+
+```
+node hub/cli.ts open                         # the current repo's project page
+node hub/cli.ts open plan <path>             # also: note <path>, doc <repo> <path>, worktree <path> [--base <sha>], project <repo>
+node hub/cli.ts open --print-url ...         # print the URL instead of opening a browser
+node hub/cli.ts restart                      # stop the running hub and start this plugin's version, without a browser
+node hub/cli.ts stop
+```
+
+See [docs/hub.md](docs/hub.md) for what it shows, the build cache, the port and the security model.
+
 ## How it works
 
 You don't run commands or remember steps. The main session follows the workflow by itself and asks you only when a decision is yours.
@@ -45,9 +59,10 @@ flowchart TB
     Main -- starts --> Agents
     Main -- uses --> Browser
     Main -- opens --> Hub
+    Main -- writes notes, built-in auto memory --> Memory
     Agents -- build in --> Worktrees
-    Hooks --> MemPy
-    MemPy --> Memory
+    Hooks -- check note writes --> MemPy
+    MemPy -- setup, search --> Memory
     Hub -- reads memory via --> MemPy
     Hub -- git diffs --> Worktrees
     Hub -- agent labels --> Transcripts
@@ -56,7 +71,7 @@ flowchart TB
 - **Hooks** load the workflow and the project's memory status at session start, and block malformed memory notes before every file write.
 - **Skills** hold each workflow step. The main session loads them when it needs them.
 - **Agents** do the building and reviewing, each as a separate Claude Code sub-agent.
-- **`scripts/memory.py`** is the one place that reads and writes memory, using the Python standard library only.
+- **`scripts/memory.py`** handles memory setup, the note format check, search and JSON for the hub, using the Python standard library only. The main session writes the notes itself under Claude Code's built-in memory rules.
 - **The memory folder** is `~/memory/<project>/` by default, with saved plans in `briefs/`.
 - **The hub** is a small local web app: `hub/cli.ts` starts a Hono server, which serves a React app.
 
