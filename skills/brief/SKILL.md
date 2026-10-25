@@ -15,7 +15,24 @@ Ask about anything still open with AskUserQuestion, before you show or write a p
 
 ## 3. Show the plan
 
-Post the brief in chat, whole. It is the plan the user agrees to, and the text the implementer and reviewers get.
+The plan has two parts: a short preview the user reads in chat, and the full brief the agents get.
+
+### The preview
+
+Post it as rendered markdown, never inside a code fence. Parts, in order:
+
+- `## Plan: <title>`, then the goal in one line.
+- **What you'll get**: the behaviour the user will see, grouped under short headings, one short bullet each.
+- **How it's built**: a few bullets on the approach and any new dependencies.
+- **Not included**: what is out of scope.
+- **Done when**: the checks, in plain words.
+- One closing line: complexity · tracks · version bump, if the project bumps versions.
+
+No file-by-file steps, no code, and no type or schema definitions unless one is critical to a decision the user must make. Keep `*`, `_` and `[[` inside backticks so they don't change the terminal formatting.
+
+### The full brief
+
+This is what the implementer and reviewers get. It is not posted in chat.
 
 ```markdown
 # Brief: <title>
@@ -38,8 +55,10 @@ Tracks: split the plan into tracks only when each part owns separate files, depe
 
 ### How to write the plan
 
+These rules apply to both the preview and the full brief.
+
 - Write for a person, not a model. Short sentences, everyday words.
-- Name the real files and the behaviour the user will see.
+- The full brief names the real files. The preview names the behaviour the user will see.
 - One concrete action per bullet. Say each thing once; don't restate the goal in every section.
 - No filler, hype or hedging. Avoid words like "robust", "seamless", "comprehensive", "leverage", "ensure", "streamline", "enhance" and "it's worth noting".
 - If a section has nothing in it, write "none".
@@ -48,10 +67,10 @@ Tracks: split the plan into tracks only when each part owns separate files, depe
 
 Ask one question with AskUserQuestion: "Start implementation?" Put "(Recommended)" on **Save and start** when complexity is medium or high, and on **Start** when it is low. Options:
 
-- **Start**: load `talk-first-workflow:review-and-merge` and follow it. No file is written; the implementer and reviewers get the plan text in their prompts.
-- **Save and start**: write the plan to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` (the memory folder is in the session context; create `briefs/` if needed), then load `talk-first-workflow:review-and-merge` and pass that path. Briefs are skipped by the memory check and are not added to `MEMORY.md`.
-- **Open the plan**: write the plan to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` as in Save and start, run the Hub command from the session context with `open plan <that path>` so it opens in the browser, tell the user, then ask "Start implementation?" again. If the hub can't run (no Node 22.18+ or pnpm), give its one-line error and the file path instead. If the user then chooses Save and start, reuse the file; don't write it twice.
-- **Change something**: ask what, update the plan, show it again, ask again.
+- **Start**: load `talk-first-workflow:review-and-merge` and follow it. No file is written; the implementer and reviewers get the full brief text in their prompts, not the preview.
+- **Save and start**: write the full brief to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` (the memory folder is in the session context; create `briefs/` if needed), then load `talk-first-workflow:review-and-merge` and pass that path. Briefs are skipped by the memory check and are not added to `MEMORY.md`.
+- **Open the plan**: write the full brief to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` as in Save and start, run the Hub command from the session context with `open plan <that path>` so it opens in the browser, tell the user, then ask "Start implementation?" again. If the hub can't run (no Node 22.18+ or pnpm), give its one-line error and the file path instead. If the user then chooses Save and start, reuse the file; don't write it twice.
+- **Change something**: ask what, update the plan, show the updated preview, ask again.
 - **Not yet**: keep talking.
 
 AskUserQuestion shows at most four options, so leave **Not yet** off the buttons; the user can still give that answer in the free-text reply.

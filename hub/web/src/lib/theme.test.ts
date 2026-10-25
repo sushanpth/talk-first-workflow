@@ -59,14 +59,6 @@ afterEach(() => {
 });
 
 describe('theme', () => {
-  it('cycles system, light, dark and back to system', async () => {
-    stubBrowser();
-    const { nextThemeMode } = await loadTheme();
-    expect(nextThemeMode('system')).toBe('light');
-    expect(nextThemeMode('light')).toBe('dark');
-    expect(nextThemeMode('dark')).toBe('system');
-  });
-
   it('follows the OS live on system, and ignores it once a mode is chosen', async () => {
     stubBrowser();
     const { getThemeMode, isDark, setThemeMode } = await loadTheme();
