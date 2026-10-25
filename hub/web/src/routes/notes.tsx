@@ -15,10 +15,10 @@ import {
 } from 'lucide-react';
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
+import NoteEditor from '@/components/notes/editor';
 import { useAttachmentUrls, useMemoryNames, useNotesData } from '@/components/notes/hooks';
 import { NoteList } from '@/components/notes/note-list';
 import { NotePanel } from '@/components/notes/note-panel';
-import { PlainEditor } from '@/components/notes/plain-editor';
 import { QuickSwitcher } from '@/components/notes/quick-switcher';
 import { NotesSidebar } from '@/components/notes/sidebar';
 import { DELETED_VIEW } from '@/components/notes/view';
@@ -595,7 +595,7 @@ export function NotesPage() {
                   </div>
                 ) : (
                   <div className="h-[calc(100%-1.75rem)]">
-                    <PlainEditor key={note.id} {...editorProps} />
+                    <NoteEditor key={note.id} {...editorProps} />
                   </div>
                 )}
               </div>

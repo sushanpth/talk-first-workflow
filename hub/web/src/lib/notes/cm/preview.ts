@@ -8,8 +8,9 @@ import {
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view';
+import { findWikiLinks } from '../model.ts';
 import { ATTACHMENT_SCHEME } from '../types.ts';
-import { findWikiLinks, inCode, TAG } from './syntax.ts';
+import { inCode, TAG } from './syntax.ts';
 import { toggleTask } from './tasks.ts';
 
 /** Dispatch to redraw widgets, e.g. once an attachment's blob URL is ready. */

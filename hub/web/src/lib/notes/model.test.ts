@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dailyTitle,
+  findWikiLinks,
   folderTree,
   groupByDate,
   linkedMentions,
@@ -72,6 +73,18 @@ describe('parseLinks', () => {
 
   it('ignores links in code', () => {
     expect(parseLinks('`[[a]]`\n```\n[[b]]\n```\n[[c]]').map((l) => l.target)).toEqual(['c']);
+  });
+});
+
+describe('findWikiLinks', () => {
+  it('reads target, heading and alias with shifted offsets', () => {
+    expect(findWikiLinks('see [[Groceries#Dairy|milk]] now', 10)).toEqual([
+      { target: 'Groceries', heading: 'Dairy', alias: 'milk', from: 14, to: 38 },
+    ]);
+  });
+
+  it('skips empty links', () => {
+    expect(findWikiLinks('[[]] [[ ]] [[#h]]')).toEqual([]);
   });
 });
 

@@ -46,14 +46,17 @@ export function parseLinkText(inner: string): Pick<NoteLink, 'target' | 'alias' 
   return { target, ...(heading && { heading }), ...(alias && { alias }) };
 }
 
-export function parseLinks(body: string): NoteLink[] {
+/** `[[links]]` in `text`, code included, with offsets shifted by `offset`. */
+export function findWikiLinks(text: string, offset = 0): NoteLink[] {
   const links: NoteLink[] = [];
-  for (const m of maskCode(body).matchAll(WIKILINK_RE)) {
+  for (const m of text.matchAll(WIKILINK_RE)) {
     const parsed = parseLinkText(m[1] ?? '');
-    if (parsed.target) links.push({ ...parsed, from: m.index, to: m.index + m[0].length });
+    if (parsed.target) links.push({ ...parsed, from: offset + m.index, to: offset + m.index + m[0].length });
   }
   return links;
 }
+
+export const parseLinks = (body: string): NoteLink[] => findWikiLinks(maskCode(body));
 
 const TAG_RE = /(^|[\s(])#([\p{L}\p{N}_/-]+)/gu;
 
@@ -238,12 +241,17 @@ export function linkMention(body: string, title: string): string {
 
 const TASK_RE = /^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\[([ xX])\]/;
 
+/** Offset of the ` `/`x` inside the checkbox of the list item that starts at `offset`, if it has one. */
+export function taskMarkAt(text: string, offset: number): number | undefined {
+  const m = TASK_RE.exec(text.slice(offset));
+  return m ? offset + m[0].length - 2 : undefined;
+}
+
 /** Ticks or unticks the checkbox of the list item that starts at `offset`. */
 export function toggleTask(body: string, offset: number): string {
-  const m = TASK_RE.exec(body.slice(offset));
-  if (!m) return body;
-  const at = offset + m[0].length - 2;
-  return `${body.slice(0, at)}${m[1] === ' ' ? 'x' : ' '}${body.slice(at + 1)}`;
+  const at = taskMarkAt(body, offset);
+  if (at === undefined) return body;
+  return `${body.slice(0, at)}${body[at] === ' ' ? 'x' : ' '}${body.slice(at + 1)}`;
 }
 
 export interface FolderRow {

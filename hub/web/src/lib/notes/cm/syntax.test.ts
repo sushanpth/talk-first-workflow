@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { findWikiLinks, TAG, wikiLinkAt } from './syntax.ts';
+import { TAG, wikiLinkAt } from './syntax.ts';
 import { stateOf } from './test-utils.ts';
-
-describe('findWikiLinks', () => {
-  it('reads target, heading and alias with offsets', () => {
-    expect(findWikiLinks('see [[Groceries#Dairy|milk]] now', 10)).toEqual([
-      { target: 'Groceries', heading: 'Dairy', alias: 'milk', from: 14, to: 38 },
-    ]);
-  });
-
-  it('skips empty links', () => {
-    expect(findWikiLinks('[[]] [[ ]]')).toEqual([]);
-  });
-});
 
 describe('wikiLinkAt', () => {
   it('finds the link under a position but not inside code', () => {
