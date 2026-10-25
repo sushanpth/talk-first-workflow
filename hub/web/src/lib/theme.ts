@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
-export type ThemeMode = 'system' | 'light' | 'dark';
+export const THEME_MODES = ['system', 'light', 'dark'] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
 
-const NEXT: Record<ThemeMode, ThemeMode> = { system: 'light', light: 'dark', dark: 'system' };
 const STORAGE_KEY = 'talk-first-hub:theme';
 
 let mode: ThemeMode = 'system';
@@ -13,7 +13,7 @@ const listeners = new Set<() => void>();
 function readStoredMode(): ThemeMode {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
-    return value !== null && Object.hasOwn(NEXT, value) ? (value as ThemeMode) : 'system';
+    return THEME_MODES.find((m) => m === value) ?? 'system';
   } catch {
     return 'system';
   }
@@ -32,10 +32,6 @@ export function initTheme() {
     if (mode === 'system') apply();
   });
   apply();
-}
-
-export function nextThemeMode(current: ThemeMode): ThemeMode {
-  return NEXT[current];
 }
 
 export function getThemeMode(): ThemeMode {
