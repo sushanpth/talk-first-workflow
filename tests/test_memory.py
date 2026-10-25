@@ -50,7 +50,7 @@ class TestCheck:
         assert memory.check_text(text) == []
 
 
-class TestSimilarAndSearch:
+class TestSearch:
     def write_notes(self, directory):
         directory.mkdir(parents=True)
         (directory / "MEMORY.md").write_text("- index\n")
@@ -64,20 +64,6 @@ class TestSimilarAndSearch:
                  body="Two regions.\n\n**Why:** latency for EU users.\n"))
         (directory / "briefs").mkdir()
         (directory / "briefs" / "2026-10-23-login.md").write_text("# Brief: session login cookies\n")
-
-    def test_similar_ranks_closest_note_first(self, tmp_path):
-        self.write_notes(tmp_path / "m")
-        draft = note(name="session-cookie-expiry", description="Session cookies expire after 14 days of inactivity",
-                     body="Sliding expiry.\n\n**Why:** fewer forced logins.\n")
-        results = memory.similar(draft, tmp_path / "m")
-        assert results[0]["name"] == "auth-uses-session-cookies"
-        assert all("deploy" not in r["name"] for r in results)
-
-    def test_similar_excludes_the_note_being_edited(self, tmp_path):
-        self.write_notes(tmp_path / "m")
-        path = tmp_path / "m" / "auth-uses-session-cookies.md"
-        results = memory.similar(path.read_text(), tmp_path / "m", exclude=path)
-        assert all(r["name"] != "auth-uses-session-cookies" for r in results)
 
     def test_index_and_briefs_are_not_notes(self, tmp_path):
         self.write_notes(tmp_path / "m")

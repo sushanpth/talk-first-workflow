@@ -46,7 +46,7 @@ flowchart TB
     subgraph CC[Claude Code]
         Main[Main session]
         Skills[Skills: workflow steps]
-        Agents[Agents: implementer, reviewers, memory reviewer]
+        Agents[Agents: implementer, reviewers]
         Hooks[Hooks: session start, memory write check]
         Browser[Bundled Playwright browser]
     end
@@ -79,7 +79,7 @@ flowchart TB
 
 - **Talk-only main agent.** It reads, searches, explains and discusses, but doesn't edit project files unless you ask for a direct edit.
 - **Per-project memory.** Claude Code's own memory system, moved to `~/memory/<project>/` (or `<repo>/.memory/` if you want notes committed). Notes keep the native format, with `**Why:**`, `**How to apply:**` and `**Where:**` lines and `[[links]]` between notes.
-- **Memory write check.** A hook blocks malformed notes: bad frontmatter, a missing `**Why:**` line or a description that is too long. Before a note is written, a small Haiku agent compares it with the most similar notes and rejects duplicates, contradictions and vague notes. If that agent can't be reached, the note is written with the format check only.
+- **Memory write check.** A hook blocks malformed notes: bad frontmatter, a missing `**Why:**` line or a description that is too long.
 - **Start gate.** Nothing is built until you choose to start. Saving the plan to `<memory>/briefs/` first is recommended for medium and high complexity and skipped for small fixes.
 - **Implementer.** An Opus agent builds the change in its own git worktree. It writes a failing test before a behaviour change, finds the root cause before a fix, commits in small steps and never pushes.
 - **Parallel tracks.** When a plan splits into independent parts, an optional contract step fixes shared types or file layout first. Then one implementer builds each track at the same time, and an integration implementer merges them and runs the full checks. Reviews run once, on the combined result.
@@ -192,7 +192,7 @@ Security model:
 - Memory is per machine. To share notes across machines, use `.memory/` in the repo and commit it.
 - Plugins that inject "always invoke a skill first" rules at session start (such as superpowers) pull the main session out of talk mode. Disable them while using this plugin; the implementer already follows test-first and root-cause-first rules.
 - Once enabled, the plugin applies to every session. To use it in some repos only, disable it globally and enable it in those projects.
-- Agent models: the implementer and the security reviewer use Opus; the conformance, architecture and test reviewers use Sonnet; the lint reviewer and the memory reviewer use Haiku. Edit the `model:` line in `agents/*.md` to change them.
+- Agent models: the implementer and the security reviewer use Opus; the conformance, architecture and test reviewers use Sonnet; the lint reviewer uses Haiku. Edit the `model:` line in `agents/*.md` to change them.
 
 ## Limitations
 
@@ -225,7 +225,7 @@ Set `TALK_FIRST_HUB_HOME` to a scratch folder and `TALK_FIRST_HUB_PORT` to a fre
 
 Bump `version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` in each PR, following [Semantic Versioning](https://semver.org). The two must match, because `claude plugin update` only picks up a change when the version goes up. See `CLAUDE.md` for details.
 
-Layout: `.mcp.json` (bundled browser server), `hooks/` (session start, memory write check), `skills/` (workflow steps the agent loads itself), `agents/` (implementer and reviewers), `scripts/memory.py` (setup, check, similar, search, and JSON for the hub), `hub/` (the web hub: `cli.ts` launcher, `server/` Hono API, `web/` React UI), `tests/`.
+Layout: `.mcp.json` (bundled browser server), `hooks/` (session start, memory write check), `skills/` (workflow steps the agent loads itself), `agents/` (implementer and reviewers), `scripts/memory.py` (setup, check, search, and JSON for the hub), `hub/` (the web hub: `cli.ts` launcher, `server/` Hono API, `web/` React UI), `tests/`.
 
 ## Credits
 
