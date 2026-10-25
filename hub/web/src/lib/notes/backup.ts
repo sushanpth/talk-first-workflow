@@ -128,21 +128,25 @@ const importable = (path: string) => extOf(path) === 'md' || extOf(path) in MIME
 const JUNK_RE = /(^|\/)(__MACOSX|\.obsidian|\.trash)\/|(^|\/)\.DS_Store$/;
 
 /** The files to import from one picked file: a zip's notes and images, or the file itself. */
-export function backupEntries(name: string, data: Uint8Array): BackupFiles {
+export function backupEntries(
+  name: string,
+  data: Uint8Array,
+  limits = { file: MAX_FILE_BYTES, total: MAX_TOTAL_BYTES },
+): BackupFiles {
   if (!name.toLowerCase().endsWith('.zip')) {
-    return importable(name) && data.length <= MAX_FILE_BYTES
+    return importable(name) && data.length <= limits.file
       ? { entries: [{ path: name, data }], ignored: [] }
       : { entries: [], ignored: [name] };
   }
   const ignored: string[] = [];
   let total = 0;
-  // Sizes come from the zip's headers; fflate inflates into buffers of exactly that size.
   const files = unzipSync(data, {
-    filter: ({ name: path, originalSize }) => {
+    filter: ({ name: path, size: packed, originalSize }) => {
       if (path.endsWith('/') || JUNK_RE.test(path)) return false;
-      const ok =
-        importable(path) && originalSize <= MAX_FILE_BYTES && total + originalSize <= MAX_TOTAL_BYTES;
-      if (ok) total += originalSize;
+      // Headers can lie: fflate inflates into `originalSize` bytes but copies stored entries by `size`.
+      const size = Math.max(packed, originalSize);
+      const ok = importable(path) && size <= limits.file && total + size <= limits.total;
+      if (ok) total += size;
       else ignored.push(path);
       return ok;
     },

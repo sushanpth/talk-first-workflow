@@ -226,7 +226,32 @@ describe('backupEntries', () => {
     expect(ignored.sort()).toEqual(['big.png', 'c.svg', 'd.pdf']);
   });
 
+  it('caps stored entries by their real size when the header claims 0 bytes', () => {
+    const bytes = (n: number) => new Uint8Array(n).fill(7);
+    const zip = zipSync(
+      { 'a.png': bytes(80), 'b.png': bytes(80), 'big.png': bytes(120), 'c.md': strToU8('# C') },
+      { level: 0 },
+    );
+    forgeOriginalSizes(zip);
+    expect(
+      unzipSync(zip, { filter: (f) => f.name === 'a.png' && f.originalSize === 0 })['a.png'],
+    ).toHaveLength(80);
+    const { entries, ignored } = backupEntries('evil.zip', zip, { file: 100, total: 150 });
+    expect(entries.map((e) => e.path).sort()).toEqual(['a.png', 'c.md']);
+    expect(ignored.sort()).toEqual(['b.png', 'big.png']);
+  });
+
   it('ignores a loose file that is not markdown', () => {
     expect(backupEntries('x.txt', strToU8('x'))).toEqual({ entries: [], ignored: ['x.txt'] });
   });
 });
+
+/** Zeroes every uncompressed-size field, local and central, as a crafted zip could. */
+function forgeOriginalSizes(zip: Uint8Array) {
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  for (let i = 0; i + 4 <= zip.length; i++) {
+    const sig = view.getUint32(i, true);
+    if (sig === 0x04034b50) view.setUint32(i + 22, 0, true);
+    if (sig === 0x02014b50) view.setUint32(i + 24, 0, true);
+  }
+}
