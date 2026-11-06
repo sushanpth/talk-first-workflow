@@ -73,4 +73,4 @@ The buttons adapt to how the project ships, which is kept in a `shipping-prefere
 
 ## Agent models
 
-The implementer and the security reviewer use Opus; the conformance, architecture and test reviewers use Sonnet; the lint reviewer uses Haiku. Edit the `model:` line in `agents/*.md` to change them.
+The implementer and the security reviewer use Opus; the conformance, architecture and test reviewers use Sonnet; the lint and memory reviewers use Haiku. Edit the `model:` line in `agents/*.md` to change them.

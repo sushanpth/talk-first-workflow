@@ -90,4 +90,4 @@ These git commands are the user's explicit choice, so they are allowed despite t
 
 ## 6. Remember
 
-Save only what a future session would get wrong without a note: why a retry was needed, and, if the lint reviewer discovered the project's check commands, a `project-checks` reference note listing them.
+Save via `talk-first-workflow:save-memory`, and only what a future session would get wrong without a note: why a retry was needed, and, if the lint reviewer discovered the project's check commands, a `project-checks` reference note listing them.

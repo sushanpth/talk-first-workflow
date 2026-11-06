@@ -32,9 +32,21 @@ Set `TALK_FIRST_MEMORY_ROOT` to use a root other than `~/memory`.
 
 A hook runs before every file write and blocks malformed notes: bad frontmatter, a missing `**Why:**` line or a description that is too long.
 
+## Memory reviewer
+
+Before writing a note, the main session has a Haiku reviewer check the draft against existing notes. It fails:
+
+- state claims (what exists, what's live, what's planned) without an `**As of:** YYYY-MM-DD` line, and progress updates that only matter this week
+- facts the code, docs or knowledge base already hold; save a `reference` note pointing there instead
+- vague notes, and notes that only matter to the current conversation
+
+When the draft is a newer take on an existing note, the verdict is UPDATE (merge into it) or REPLACE (supersede it). If it's unclear which is right, the main session checks the code and `git log`, or asks you.
+
+When you and a note disagree, the main session trusts neither blindly: it checks the code and `git log` since the note's `**As of:**` date, then fixes the note or shows you the evidence. If that doesn't settle it, it asks you and updates the note.
+
 ## memory.py
 
-`scripts/memory.py` handles memory setup, the note format check and search. It never writes notes: the main session writes them itself under Claude Code's built-in memory rules, and the write check hook runs `memory.py`'s check on each one. It uses the Python standard library only.
+`scripts/memory.py` handles memory setup, the note format check and search. It never writes notes: the main session writes them itself after the [memory reviewer](#memory-reviewer) checks each draft, and the write check hook runs `memory.py`'s check on each one. It uses the Python standard library only.
 
 It also works from a terminal:
 
