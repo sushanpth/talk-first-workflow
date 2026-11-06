@@ -1,8 +1,6 @@
 # Limitations
 
 - The talk-only rule is advisory. It comes from instructions loaded at session start, not from a hard block, so the main session can still edit files if it ignores them.
-- The hub labels agent worktrees by reading Claude Code's transcript files. That format is not documented and may change, which would leave worktrees untitled.
-- The hub needs Node.js 22.18 or newer and pnpm.
 - Windows is not supported.
 
 ## Good to know

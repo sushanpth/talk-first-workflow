@@ -34,7 +34,7 @@ A hook runs before every file write and blocks malformed notes: bad frontmatter,
 
 ## memory.py
 
-`scripts/memory.py` handles memory setup, the note format check, search, and JSON for the hub. It never writes notes: the main session writes them itself under Claude Code's built-in memory rules, and the write check hook runs `memory.py`'s check on each one. It uses the Python standard library only.
+`scripts/memory.py` handles memory setup, the note format check and search. It never writes notes: the main session writes them itself under Claude Code's built-in memory rules, and the write check hook runs `memory.py`'s check on each one. It uses the Python standard library only.
 
 It also works from a terminal:
 

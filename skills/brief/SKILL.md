@@ -69,7 +69,7 @@ Ask one question with AskUserQuestion: "Start implementation?" Put "(Recommended
 
 - **Start**: load `talk-first-workflow:review-and-merge` and follow it. No file is written; the implementer and reviewers get the full brief text in their prompts, not the preview.
 - **Save and start**: write the full brief to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` (the memory folder is in the session context; create `briefs/` if needed), then load `talk-first-workflow:review-and-merge` and pass that path. Briefs are skipped by the memory check and are not added to `MEMORY.md`.
-- **Open the plan**: write the full brief to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` as in Save and start, run the Hub command from the session context with `open plan <that path>` so it opens in the browser, tell the user, then ask "Start implementation?" again. If the hub can't run (no Node 22.18+ or pnpm), give its one-line error and the file path instead. If the user then chooses Save and start, reuse the file; don't write it twice.
+- **Open the plan**: write the full brief to `<memory folder>/briefs/YYYY-MM-DD-<slug>.md` as in Save and start, give the user the file path, then ask "Start implementation?" again. If the user then chooses Save and start, reuse the file; don't write it twice.
 - **Change something**: ask what, update the plan, show the updated preview, ask again.
 - **Not yet**: keep talking.
 
