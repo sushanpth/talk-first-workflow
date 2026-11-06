@@ -40,7 +40,7 @@ Before writing a note, the main session has a Haiku reviewer check the draft aga
 - facts the code, docs or knowledge base already hold; save a `reference` note pointing there instead
 - vague notes, and notes that only matter to the current conversation
 
-When the draft is a newer take on an existing note, the verdict is UPDATE (merge into it) or REPLACE (supersede it). If it's unclear which is right, the main session checks the code and `git log`, or asks you.
+When the draft is a newer take on an existing note, the verdict is UPDATE (merge into it) or REPLACE (supersede it). The main session acts on these only for an existing note directly in the memory folder, and never edits or deletes anything outside it. If it's unclear which is right, the main session checks the code and `git log`, or asks you.
 
 When you and a note disagree, the main session trusts neither blindly: it checks the code and `git log` since the note's `**As of:**` date, then fixes the note or shows you the evidence. If that doesn't settle it, it asks you and updates the note.
 

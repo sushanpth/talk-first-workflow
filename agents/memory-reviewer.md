@@ -19,6 +19,8 @@ Judge the draft on:
 
 Don't fail for style.
 
+`<note-file>` is the bare file name of an existing note in the memory folder (e.g. `auth-flow.md`), never a path.
+
 Reply in exactly this format:
 
 ```
