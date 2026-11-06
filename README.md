@@ -42,7 +42,7 @@ flowchart TB
     Main -- loads --> Skills
     Main -- starts --> Agents
     Main -- uses --> Browser
-    Main -- writes notes, built-in auto memory --> Memory
+    Main -- writes reviewed notes --> Memory
     Agents -- build in --> Worktrees
     Hooks -- check note writes --> MemPy
     MemPy -- setup, search --> Memory
@@ -51,7 +51,7 @@ flowchart TB
 - **Hooks** load the workflow and the project's memory status at session start, and block malformed memory notes before every file write.
 - **Skills** hold each workflow step. The main session loads them when it needs them.
 - **Agents** do the building and reviewing, each as a separate Claude Code sub-agent.
-- **`scripts/memory.py`** handles memory setup, the note format check and search, using the Python standard library only. The main session writes the notes itself under Claude Code's built-in memory rules.
+- **`scripts/memory.py`** handles memory setup, the note format check and search, using the Python standard library only. The main session writes the notes itself, after a memory reviewer checks each draft.
 - **The memory folder** is `~/memory/<project>/` by default, with saved plans in `briefs/`.
 
 ## Features
