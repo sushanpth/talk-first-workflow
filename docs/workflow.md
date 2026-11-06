@@ -6,10 +6,10 @@ You don't run commands or remember steps. The main session follows the workflow 
 
 1. **Talk.** You discuss the problem. The main session reads, searches and explains, but doesn't edit your files.
 2. **Plan.** When the talk turns into a change, it restates the task, settles open questions and shows a plan in plain English.
-3. **Start.** Nothing is built until you choose to start. You can save the plan to memory first, or open it in the hub.
+3. **Start.** Nothing is built until you choose to start. You can save the plan to memory first and read it before you start.
 4. **Implement.** An implementer agent builds the change on its own branch in its own git worktree, test first, and runs the plan's checks.
 5. **Review.** Reviewer agents check the result. Blockers go back to the implementer for up to two fix rounds.
-6. **You decide.** Merge locally, open a PR, keep the branch or discard it. You can look at the diff in the hub first.
+6. **You decide.** Merge locally, open a PR, keep the branch or discard it. You can look at the diff first.
 
 ```mermaid
 flowchart TD
@@ -34,7 +34,7 @@ The main session reads, searches, explains and discusses, but doesn't edit proje
 
 ## Start gate and saved briefs
 
-Nothing is built until you choose to start. Saving the plan to `<memory>/briefs/` first is recommended for medium and high complexity and skipped for small fixes. A saved plan can be opened in the [hub](hub.md) with **Open the plan** at the start gate.
+Nothing is built until you choose to start. Saving the plan to `<memory>/briefs/` first is recommended for medium and high complexity and skipped for small fixes. **Open the plan** at the start gate saves it and gives you the file path, so you can read it before you start.
 
 ## Implementer
 
@@ -46,7 +46,7 @@ When a plan splits into independent parts, an optional contract step fixes share
 
 ## Branch names
 
-Each branch is named from the plan, such as `tf/hub-launcher-fix`. In a parallel run, tracks get `tf/<slug>-<track>` and the integration gets `tf/<slug>`.
+Each branch is named from the plan, such as `tf/login-timeout-fix`. In a parallel run, tracks get `tf/<slug>-<track>` and the integration gets `tf/<slug>`.
 
 ## Reviewers
 
@@ -67,7 +67,7 @@ You choose how to finish:
 - keep the branch
 - fix the remaining should-fix items first
 - discard, with an option to retry
-- look at the diff in the hub first (**Look first**)
+- look at the diff first (**Look first**): you get the worktree path, the branch and a `git diff` command
 
 The buttons adapt to how the project ships, which is kept in a `shipping-preference` memory note. Options without a button can be typed as a reply. It pushes only when you open a PR.
 

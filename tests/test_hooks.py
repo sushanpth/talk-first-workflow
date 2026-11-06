@@ -1,7 +1,7 @@
 import json
 
 import memory
-from conftest import ROOT, note, run_hook
+from conftest import note, run_hook
 
 BAD = note(kind="project", body="A fact without a reason.\n")
 
@@ -84,17 +84,14 @@ class TestSessionStart:
         assert "scripts/memory.py" in text
         assert "name: talk-first" not in text
 
-    def test_injects_hub_launcher(self, repo, env):
+    def test_has_no_hub_line(self, repo, env):
         text = self.context(repo, env)
-        cli = ROOT / "hub" / "cli.ts"
-        hub_line = next(line for line in text.splitlines() if line.startswith("- Hub:"))
-        assert f'node "{cli}" open' in hub_line
-        assert "plan <path>" in hub_line and "worktree <path>" in hub_line
+        assert not any(line.startswith("- Hub:") for line in text.splitlines())
 
     def test_lists_memory_subcommands(self, repo, env):
         text = self.context(repo, env)
         tool_line = next(line for line in text.splitlines() if line.startswith("- Memory tool:"))
-        assert "(subcommands: status, init, skip, check, search, projects, dump)" in tool_line
+        assert "(subcommands: status, init, skip, check, search)" in tool_line
 
     def test_asks_for_setup_in_new_repo(self, repo, env):
         assert "NOT set up" in self.context(repo, env)

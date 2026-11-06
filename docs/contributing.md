@@ -17,12 +17,7 @@ Run these before a PR:
 ```
 python3 -m pytest -q                         # unit and hook tests
 claude plugin validate .                     # manifest check
-cd hub && pnpm install --frozen-lockfile     # hub dependencies
-pnpm typecheck && pnpm lint && pnpm test     # hub checks: tsc, Biome, vitest
-pnpm build                                   # hub UI build into <hub home>/dist/dev (the launcher builds its own)
 ```
-
-Set `TALK_FIRST_HUB_HOME` to a scratch folder and `TALK_FIRST_HUB_PORT` to a free port when testing the hub, so your own hub in `~/.cache` and on port 47321 isn't touched.
 
 ## Version bump
 
@@ -34,7 +29,6 @@ Bump `version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketpl
 - `hooks/`: session start, memory write check
 - `skills/`: workflow steps the agent loads itself
 - `agents/`: implementer and reviewers
-- `scripts/memory.py`: setup, check, search, and JSON for the hub
-- `hub/`: the web hub, with the `cli.ts` launcher, the `server/` Hono API and the `web/` React UI
+- `scripts/memory.py`: setup, check and search
 - `tests/`
 - `docs/`: these pages
