@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Memory tool for the talk-first workflow: setup, note checks, search and JSON for the hub."""
+"""Memory tool for the talk-first workflow: setup, note checks and search."""
 import argparse
 import json
 import math
@@ -17,7 +17,6 @@ INDEX_NAME = "MEMORY.md"
 BRIEFS_DIR = "briefs"
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
-BRIEF_TITLE_RE = re.compile(r"^#\s*Brief:\s*(.+)$", re.MULTILINE)
 WORD_RE = re.compile(r"[a-z0-9]{3,}")
 STOPWORDS = set(
     "the and for that this with from are was were has have had not but you your our its "
@@ -36,7 +35,7 @@ def claude_home() -> Path:
 
 
 def claude_homes() -> list[Path]:
-    """CLAUDE_CONFIG_DIR, ~/.claude and every ~/.claude-* with a projects folder, so the hub sees every config folder."""
+    """CLAUDE_CONFIG_DIR, ~/.claude and every ~/.claude-* with a projects folder."""
     home = Path.home()
     configured = os.environ.get("CLAUDE_CONFIG_DIR")
     extra = sorted(p for p in home.glob(".claude-*") if (p / "projects").is_dir())
@@ -358,81 +357,6 @@ def search(query: str, directory: Path, limit: int = 5) -> list[dict]:
     return results
 
 
-def brief_files(directory: Path) -> list[Path]:
-    folder = directory / BRIEFS_DIR
-    # Newest first: brief files start with their date.
-    return sorted(folder.glob("*.md"), reverse=True) if folder.is_dir() else []
-
-
-def brief_title(text: str, fallback: str) -> str:
-    match = BRIEF_TITLE_RE.search(text)
-    return match.group(1).strip() if match else fallback
-
-
-def dump(directory: Path) -> dict:
-    """One memory folder in full, for the hub."""
-    by_name = notes_by_name(directory)
-    notes = []
-    for path in note_files(directory):
-        meta, body = parse_note(path.read_text(errors="replace"))
-        meta = meta or {}
-        notes.append({
-            "path": str(path),
-            "name": meta.get("name", path.stem),
-            "description": meta.get("description", ""),
-            "type": note_type(meta),
-            "body": body.strip("\n"),
-        })
-    name_of = {note["path"]: note["name"] for note in notes}
-
-    def links(text: str) -> list[dict]:
-        return [
-            {"target": target, "name": name_of[str(by_name[target])] if target in by_name else None}
-            for target in sorted(set(LINK_RE.findall(text)))
-        ]
-
-    for item in notes:
-        item["links"] = links(item["body"])
-    for item in notes:
-        item["backlinks"] = sorted(
-            other["name"] for other in notes
-            if other is not item and any(link["name"] == item["name"] for link in other["links"])
-        )
-    index = directory / INDEX_NAME
-    briefs = []
-    for path in brief_files(directory):
-        text = path.read_text(errors="replace")
-        briefs.append({
-            "path": str(path), "file": path.name, "title": brief_title(text, path.stem), "body": text,
-            "links": links(text),
-        })
-    return {
-        "memory_dir": str(directory),
-        "index": index.read_text(errors="replace") if index.is_file() else "",
-        "notes": notes,
-        "briefs": briefs,
-    }
-
-
-def projects() -> list[dict]:
-    """Memory folders under the root that belong to a repo (they have a .source file)."""
-    root = memory_root()
-    if not root.is_dir():
-        return []
-    found = []
-    for folder in sorted(p for p in root.iterdir() if (p / ".source").is_file()):
-        repo = (folder / ".source").read_text().strip()
-        found.append({
-            "name": folder.name,
-            "memory_dir": str(folder),
-            "repo": repo,
-            "note_count": len(note_files(folder)),
-            "brief_count": len(brief_files(folder)),
-            "transcript_dirs": transcript_dirs(Path(repo)),
-        })
-    return found
-
-
 def resolve_dir(args) -> Path:
     if getattr(args, "dir", None):
         return Path(args.dir).expanduser()
@@ -455,9 +379,6 @@ def main(argv: list[str] | None = None) -> int:
     p_search.add_argument("query", nargs="+")
     p_search.add_argument("--dir")
     p_search.add_argument("--limit", type=int, default=5)
-    sub.add_parser("projects", help="JSON list of memory folders that belong to a repo (for the hub)")
-    p_dump = sub.add_parser("dump", help="JSON dump of one memory folder: notes, index and briefs (for the hub)")
-    p_dump.add_argument("--dir")
 
     args = parser.parse_args(argv)
     cwd = Path(args.cwd).resolve()
@@ -473,10 +394,6 @@ def main(argv: list[str] | None = None) -> int:
         errors = check_text(text)
         print(json.dumps({"ok": not errors, "errors": errors}, indent=2))
         return 0 if not errors else 1
-    elif args.command == "projects":
-        result = projects()
-    elif args.command == "dump":
-        result = dump(resolve_dir(args))
     else:
         result = search(" ".join(args.query), resolve_dir(args), args.limit)
     print(json.dumps(result, indent=2))
