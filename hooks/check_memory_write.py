@@ -26,8 +26,9 @@ def is_memory_note(path: Path, cwd: Path) -> bool:
     for base in memory_dirs(cwd):
         if base == memory.claude_home().expanduser().resolve() / "projects":
             # Claude's default layout: projects/<sanitized-cwd>/memory/<note>.md
-            if base in path.parents and "memory" in path.relative_to(base).parts[1:2]:
-                return True
+            rel = path.relative_to(base).parts if base in path.parents else ()
+            if rel[1:2] == ("memory",):
+                return memory.BRIEFS_DIR not in rel[2:-1]
             continue
         if base in path.parents:
             return memory.BRIEFS_DIR not in path.relative_to(base).parts[:-1]

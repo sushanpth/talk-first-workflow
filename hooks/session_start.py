@@ -24,7 +24,7 @@ def memory_line(info: dict) -> str:
                 " notes under topic notes so the index lists topics, not every note."
             )
         return line
-    if info["skipped"] or not info["is_git"]:
+    if not info["is_git"]:
         return "Memory setup: not used for this directory. Do not ask about it."
     legacy = (
         f" Claude's default memory folder for this repo has {info['legacy_count']} notes that can be migrated."
@@ -51,7 +51,7 @@ def main() -> int:
     context = (
         "<talk-first-workflow>\n"
         + skill_body("talk-first")
-        + f"\n\n## This session\n\n- Memory tool: `{tool}` (subcommands: status, init, skip, check, search).\n"
+        + f"\n\n## This session\n\n- Memory tool: `{tool}` (subcommands: status, init, check, search).\n"
         + f"- {status_line}\n"
         + "</talk-first-workflow>"
     )

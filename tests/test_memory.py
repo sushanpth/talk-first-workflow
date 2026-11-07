@@ -1,6 +1,8 @@
 import json
 import subprocess
 
+import pytest
+
 import memory
 from conftest import note
 
@@ -85,7 +87,7 @@ class TestSearch:
 class TestSetup:
     def test_status_before_setup(self, repo, env):
         info = memory.status(repo)
-        assert info["is_git"] and not info["configured"] and not info["skipped"]
+        assert info["is_git"] and not info["configured"] and not info["default_folder"]
         assert info["memory_dir"] == str(env["memory_root"] / "shop")
 
     def test_init_outside_repo(self, repo, env):
@@ -161,11 +163,34 @@ class TestSetup:
         result = memory.init(other, in_repo=False, do_migrate=False)
         assert result["memory_dir"] == str(env["memory_root"] / "clients-shop")
 
-    def test_skip_and_unskip(self, repo):
-        memory.skip(repo)
-        assert memory.status(repo)["skipped"]
+    def test_init_default_folder(self, repo, env):
+        result = memory.init(repo, in_repo=False, do_migrate=False, default=True)
+        dest = env["claude_home"] / "projects" / memory.sanitize(repo) / "memory"
+        assert result["memory_dir"] == str(dest) and dest.is_dir() and result["migrated"] == 0
+        assert not (dest / ".source").exists()
+        settings = json.loads((repo / ".claude" / "settings.local.json").read_text())
+        assert settings["autoMemoryDirectory"] == str(dest)
+        ignored = subprocess.run(["git", "check-ignore", "-q", ".claude/settings.local.json"], cwd=repo)
+        assert ignored.returncode == 0
+        assert ".claude/worktrees/" in (repo / ".git" / "info" / "exclude").read_text().splitlines()
+        info = memory.status(repo)
+        assert info["configured"] and info["default_folder"] and not info["in_repo"]
+        assert info["memory_dir"] == str(dest)
+
+    def test_legacy_skipped_repo_uses_default_folder(self, repo, env):
+        env["memory_root"].mkdir()
+        (env["memory_root"] / ".skipped").write_text(str(repo) + "\n")
+        info = memory.status(repo)
+        assert info["configured"] and info["default_folder"]
+        assert info["memory_dir"] == str(env["claude_home"] / "projects" / memory.sanitize(repo) / "memory")
+
+    def test_init_overrides_legacy_skip(self, repo, env):
+        env["memory_root"].mkdir()
+        (env["memory_root"] / ".skipped").write_text(str(repo) + "\n")
         memory.init(repo, in_repo=False, do_migrate=False)
-        assert not memory.status(repo)["skipped"]
+        info = memory.status(repo)
+        assert info["memory_dir"] == str(env["memory_root"] / "shop") and not info["default_folder"]
+        assert (env["memory_root"] / ".skipped").read_text() == ""
 
     def test_non_git_directory(self, env):
         plain = env["tmp"] / "plain"
@@ -220,4 +245,19 @@ class TestCli:
             note(name="deploy-target", description="Deploys go to Fly.io", body="x\n\n**Why:** y\n"))
         assert memory.main(["--cwd", str(repo), "search", "fly.io", "deploys"]) == 0
         assert json.loads(capsys.readouterr().out)[0]["name"] == "deploy-target"
+
+    def test_skip_is_unknown_command(self, capsys):
+        with pytest.raises(SystemExit) as exc:
+            memory.main(["skip"])
+        assert exc.value.code == 2
+
+    def test_init_default_rejects_migrate(self, repo, capsys):
+        with pytest.raises(SystemExit) as exc:
+            memory.main(["--cwd", str(repo), "init", "--default", "--migrate"])
+        assert exc.value.code == 2
+
+    def test_init_default_prints_default_folder(self, repo, env, capsys):
+        assert memory.main(["--cwd", str(repo), "init", "--default"]) == 0
+        dest = env["claude_home"] / "projects" / memory.sanitize(repo) / "memory"
+        assert json.loads(capsys.readouterr().out)["memory_dir"] == str(dest)
 
