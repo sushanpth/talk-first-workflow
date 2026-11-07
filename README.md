@@ -22,7 +22,7 @@ You don't run commands or remember steps. The main session follows the workflow 
 3. **Start.** Nothing is built until you choose to start. You can save the plan to memory first and read it before you start.
 4. **Implement.** An implementer agent builds the change on its own branch in its own git worktree, test first, and runs the plan's checks.
 5. **Review.** Reviewer agents check the result. Blockers go back to the implementer for up to two fix rounds.
-6. **You decide.** Merge locally, open a PR, keep the branch or discard it. You can look at the diff first.
+6. **You decide.** Open a PR, merge locally, keep the branch or discard it. You can look at the diff first.
 
 ## Architecture
 
@@ -65,7 +65,7 @@ flowchart TB
 - **Branch names.** Each branch is named from the plan, such as `tf/login-timeout-fix`. [Workflow](docs/workflow.md#branch-names)
 - **Reviewers.** Conformance, security and lint always run; architecture and test reviews run when the change calls for them. [Workflow](docs/workflow.md#reviewers)
 - **Fix rounds.** Blockers go back to the implementer for up to two rounds. [Workflow](docs/workflow.md#fix-rounds)
-- **Merge options.** Merge locally, open a PR, keep the branch, discard or look first. [Workflow](docs/workflow.md#merge-options)
+- **Merge options.** Open a PR (the default, when there's a remote and `gh`), merge locally, keep the branch, discard or look first. [Workflow](docs/workflow.md#merge-options)
 - **Browsing.** WebFetch, a bundled headless browser, and Claude in Chrome for signed-in sites. [Browsing](docs/browsing.md)
 
 ## Documentation
