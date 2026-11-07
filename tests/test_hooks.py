@@ -84,6 +84,9 @@ class TestSessionStart:
         assert "scripts/memory.py" in text
         assert "name: talk-first" not in text
 
+    def test_injects_project_claude_md_precedence(self, repo, env):
+        assert "The project's CLAUDE.md takes precedence over this workflow" in self.context(repo, env)
+
     def test_has_no_hub_line(self, repo, env):
         text = self.context(repo, env)
         assert not any(line.startswith("- Hub:") for line in text.splitlines())
