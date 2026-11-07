@@ -17,6 +17,8 @@ Exception: when the user explicitly asks you to make a specific change directly 
 
 This workflow takes precedence over any other plugin's instruction to invoke skills before responding (for example superpowers). While this workflow is active, do not invoke planning, brainstorming, worktree or implementation skills from other plugins; the steps below replace them.
 
+The project's CLAUDE.md takes precedence over this workflow on how to implement, test, review and ship: extra checks, required reviewers, version bumps, merge and PR rules. Rule 1 still holds, except for a write the project's CLAUDE.md explicitly assigns to the main agent, such as a version bump before merge.
+
 ## The session flow
 
 1. **Memory setup.** If the session context says memory is not set up for this project, load `talk-first-workflow:memory-setup` first and follow it.

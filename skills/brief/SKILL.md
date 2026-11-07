@@ -51,6 +51,8 @@ Complexity: low | medium | high · core logic: yes | no · reviewers: conformanc
 
 Complexity: **low** is a small change within one module; **medium** spans modules or adds a new component; **high** changes structure, data models or interfaces others depend on. Core business logic is the code that encodes the product's rules (pricing, permissions, calculations, state transitions), as opposed to UI, plumbing or config.
 
+Project steps: read the project's CLAUDE.md and carry the steps it requires for this change into the full brief (extra checks into Done when, version bumps or required reviewers into Plan or the reviewers list), so the sub-agents get them.
+
 Tracks: split the plan into tracks only when each part owns separate files, depends only on the contract, and is big enough to be worth its own agent. Otherwise write "none" and one implementer builds it all. Tests for a track's own code stay in that track; cross-cutting tests, such as end-to-end and contract tests, go in Integration.
 
 ### How to write the plan
