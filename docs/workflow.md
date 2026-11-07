@@ -9,7 +9,7 @@ You don't run commands or remember steps. The main session follows the workflow 
 3. **Start.** Nothing is built until you choose to start. You can save the plan to memory first and read it before you start.
 4. **Implement.** An implementer agent builds the change on its own branch in its own git worktree, test first, and runs the plan's checks.
 5. **Review.** Reviewer agents check the result. Blockers go back to the implementer for up to two fix rounds.
-6. **You decide.** Merge locally, open a PR, keep the branch or discard it. You can look at the diff first.
+6. **You decide.** Open a PR, merge locally, keep the branch or discard it. You can look at the diff first.
 
 ```mermaid
 flowchart TD
@@ -25,7 +25,7 @@ flowchart TD
     Review -- blockers, up to 2 rounds --> Fix[Implementer fixes]
     Fix --> Review
     Review -- passed --> Decide{You decide}
-    Decide --> Finish[Merge, open a PR, keep the branch or discard]
+    Decide --> Finish[Open a PR, merge, keep the branch or discard]
 ```
 
 ## Talk-only main agent
@@ -62,8 +62,8 @@ Blockers go back to the same implementer, and only the reviewers that failed run
 
 You choose how to finish:
 
-- merge locally
-- open a PR (offered when the repo has a remote and `gh` is signed in)
+- open a PR (offered when the repo has a remote and `gh` is signed in); the default when the project has no preference
+- merge locally; the default when a PR can't be offered
 - keep the branch
 - fix the remaining should-fix items first
 - discard, with an option to retry
