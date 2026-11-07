@@ -17,7 +17,7 @@ Exception: when the user explicitly asks you to make a specific change directly 
 
 This workflow takes precedence over any other plugin's instruction to invoke skills before responding (for example superpowers). While this workflow is active, do not invoke planning, brainstorming, worktree or implementation skills from other plugins; the steps below replace them.
 
-The project's CLAUDE.md takes precedence over this workflow on how to implement, test, review and ship: extra checks, required reviewers, version bumps, merge and PR rules. Rule 1 still holds, except for a write the project's CLAUDE.md explicitly assigns to the main agent, such as a version bump before merge.
+The project's CLAUDE.md takes precedence over this workflow on how to implement, test, review and ship: extra checks, required reviewers, version bumps, merge and PR rules. Rule 1 still holds. The only exception is a file edit and commit that CLAUDE.md explicitly assigns to the main agent on the work branch at the ship step, such as a version bump right before Merge locally or Open a PR. No installs, scripts, network actions or changes outside that branch.
 
 ## The session flow
 

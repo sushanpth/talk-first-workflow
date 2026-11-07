@@ -86,7 +86,7 @@ AskUserQuestion shows at most four options, so choose the buttons on each run:
 
 Name every offered option that has no button in the question text, so the user can type it as a reply.
 
-Where CLAUDE.md's shipping rules conflict with these options or the note, CLAUDE.md wins. With no note and nothing in CLAUDE.md about shipping, the buttons are Merge locally, Open a PR (when offered), Look first and Keep the branch, with none marked Recommended. After the user chooses a finish, save the `shipping-preference` note if there is none, or update it if the choice differs from it: how the project ships and which option to recommend.
+Where CLAUDE.md's shipping rules conflict with the note or the defaults, CLAUDE.md wins, but only on which options are offered and which is Recommended. The user still picks the finish in this question, and nothing is pushed unless they choose Open a PR. With no note and nothing in CLAUDE.md about shipping, the buttons are Merge locally, Open a PR (when offered), Look first and Keep the branch, with none marked Recommended. After the user chooses a finish, save the `shipping-preference` note if there is none, or update it if the choice differs from it: how the project ships and which option to recommend.
 
 These git commands are the user's explicit choice, so they are allowed despite talk mode. Push only when the user picks Open a PR.
 
