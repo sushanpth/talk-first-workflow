@@ -135,16 +135,17 @@ def status(cwd: Path) -> dict:
     root, is_git = repo_root(cwd)
     configured = configured_dir(root)
     legacy = legacy_dir(root)
-    memory_dir = configured or project_dir(root)
+    # Repos skipped before the default-folder option existed keep Claude's default folder.
+    memory_dir = configured or (legacy if is_skipped(root) else project_dir(root))
     index = memory_dir / INDEX_NAME
     index_lines = index.read_text().splitlines() if index.exists() else []
     return {
         "repo_root": str(root),
         "is_git": is_git,
-        "configured": configured is not None,
+        "configured": configured is not None or memory_dir == legacy,
         "memory_dir": str(memory_dir),
         "in_repo": configured is not None and root in configured.parents,
-        "skipped": is_skipped(root),
+        "default_folder": memory_dir == legacy,
         "legacy_dir": str(legacy),
         "legacy_count": len(note_files(legacy)),
         "note_count": len(note_files(memory_dir)),
@@ -187,11 +188,14 @@ def migrate(source: Path, dest: Path) -> int:
     return copied
 
 
-def init(cwd: Path, in_repo: bool, do_migrate: bool) -> dict:
+def init(cwd: Path, in_repo: bool, do_migrate: bool, default: bool = False) -> dict:
     root, _ = repo_root(cwd)
-    dest = root / ".memory" if in_repo else project_dir(root)
+    if default:
+        dest, do_migrate = legacy_dir(root), False
+    else:
+        dest = root / ".memory" if in_repo else project_dir(root)
     dest.mkdir(parents=True, exist_ok=True)
-    if not in_repo:
+    if not in_repo and not default:
         (dest / ".source").write_text(str(root) + "\n")
 
     settings_path = root / ".claude" / "settings.local.json"
@@ -206,15 +210,6 @@ def init(cwd: Path, in_repo: bool, do_migrate: bool) -> dict:
     copied = migrate(legacy_dir(root), dest) if do_migrate and legacy_dir(root).is_dir() else 0
     unskip(root)
     return {"memory_dir": str(dest), "settings": str(settings_path), "migrated": copied}
-
-
-def skip(cwd: Path) -> dict:
-    root, _ = repo_root(cwd)
-    if not is_skipped(root):
-        skipped_file().parent.mkdir(parents=True, exist_ok=True)
-        with skipped_file().open("a") as fh:
-            fh.write(str(root) + "\n")
-    return {"skipped": str(root)}
 
 
 def unskip(root: Path) -> None:
@@ -370,9 +365,10 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("status", help="show memory setup for this project")
     p_init = sub.add_parser("init", help="set up memory for this project")
-    p_init.add_argument("--in-repo", action="store_true", help="store notes in <repo>/.memory so they get committed")
+    where = p_init.add_mutually_exclusive_group()
+    where.add_argument("--in-repo", action="store_true", help="store notes in <repo>/.memory so they get committed")
+    where.add_argument("--default", action="store_true", help="keep notes in Claude's default memory folder")
     p_init.add_argument("--migrate", action="store_true", help="copy notes from Claude's default memory folder")
-    sub.add_parser("skip", help="never ask to set up memory for this project")
     p_check = sub.add_parser("check", help="check a note; reads stdin when FILE is '-'")
     p_check.add_argument("file")
     p_search = sub.add_parser("search", help="find notes for a query and follow their links one hop")
@@ -386,9 +382,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "status":
         result = status(cwd)
     elif args.command == "init":
-        result = init(cwd, args.in_repo, args.migrate)
-    elif args.command == "skip":
-        result = skip(cwd)
+        if args.default and args.migrate:
+            parser.error("--migrate does not apply to --default: the notes are already there")
+        result = init(cwd, args.in_repo, args.migrate, args.default)
     elif args.command == "check":
         text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text()
         errors = check_text(text)

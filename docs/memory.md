@@ -2,7 +2,13 @@
 
 ## Per-project memory
 
-The plugin uses Claude Code's own memory system, moved to `~/memory/<project>/` (or `<repo>/.memory/` if you want notes committed). The first session in each repo asks which one to use.
+The plugin uses Claude Code's own memory system. The first session in each repo asks where to keep the notes:
+
+- **Outside the repo** (recommended): `~/memory/<project>/`.
+- **Inside the repo**: `<repo>/.memory/`, committed with the code.
+- **Claude's default folder**: `~/.claude/projects/<repo>/memory/`, where Claude Code keeps them by default.
+
+Saving notes, search, the write check and saved briefs work the same in all three.
 
 Notes keep the native format, with `**Why:**`, `**How to apply:**` and `**Where:**` lines and `[[links]]` between notes. Saved plans go in `briefs/`.
 
@@ -12,7 +18,7 @@ Memory is per machine. To share notes across machines, use `.memory/` in the rep
 
 ```
 ~/memory/
-├── .skipped                 # repos where you chose not to use memory
+├── .skipped                 # read only: repos skipped in older versions, which now use Claude's default folder
 └── <project>/
     ├── .source              # the repo this folder belongs to
     ├── MEMORY.md            # index: one short line per note, loaded every session
